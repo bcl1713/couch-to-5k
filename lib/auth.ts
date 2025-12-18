@@ -7,9 +7,9 @@ const SALT_ROUNDS = 10;
 const SESSION_COOKIE_NAME = "session_token";
 const SESSION_EXPIRY_DAYS = 30;
 
-function shouldUseSecureCookie(): boolean {
+async function shouldUseSecureCookie(): Promise<boolean> {
   try {
-    const headerList = headers();
+    const headerList = await headers();
     const forwardedProto = headerList.get("x-forwarded-proto");
     if (forwardedProto) {
       const proto = forwardedProto.split(",")[0].trim().toLowerCase();
@@ -72,7 +72,7 @@ export async function setSessionCookie(
   expiresAt: number
 ): Promise<void> {
   const cookieStore = await cookies();
-  const secure = shouldUseSecureCookie();
+  const secure = await shouldUseSecureCookie();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure,
