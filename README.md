@@ -17,23 +17,21 @@ visual timers.
 
 ### Local Development
 
-```bash
-npm install
-npm run dev
-```
+1. Copy `.env.example` to `.env.local` and adjust `DATABASE_PATH` if desired
+   (defaults to `./data/app.db`).
+2. Install dependencies: `npm install`
+3. Start the dev server: `npm run dev`
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+The database is created and seeded automatically on first boot. Open
+[http://localhost:3000](http://localhost:3000) in your browser.
 
-### Available Scripts
+### Quality & Tests
 
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build production-optimized application
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint checks
-- `npm run type-check` - Run TypeScript type checking
-- `npm run format` - Format code with Prettier
-- `npm run docker:build` - Build Docker image
-- `npm run docker:run` - Run Docker container locally
+- `npm run lint` - ESLint checks
+- `npm run type-check` - TypeScript type checking
+- `npm test` - Unit and integration tests
+- `npm run test:coverage` - Coverage report (target 70%+)
+- `npm run build` - Production build
 
 ## Tech Stack
 
@@ -48,11 +46,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```text
 ├── app/                 # Next.js pages and API routes
 ├── components/          # React components (< 300 lines)
-├── hooks/              # Custom React hooks
-├── lib/                # Utility functions
-├── types/              # TypeScript definitions
-├── openspec/           # Specification documents
-└── .claude/            # Claude Code configuration
+├── hooks/               # Custom React hooks
+├── lib/                 # Utility functions
+├── types/               # TypeScript definitions
+├── openspec/            # Specification documents
+└── data/                # SQLite database (created on first run)
 ```
 
 ## Code Quality
@@ -64,18 +62,18 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Docker Deployment
 
+1. Build the image: `npm run docker:build`
+2. Run locally:
+
 ```bash
-npm run docker:build
-npm run docker:run
+docker run -p 3000:3000 \
+  -e NODE_ENV=production \
+  -e DATABASE_PATH=/app/data/app.db \
+  couch-to-5k:latest
 ```
 
-Or deploy to Portainer:
-
-1. Build image: `npm run docker:build`
-2. Push to registry
-3. Create container in Portainer
-4. Map port 3000 and set environment variables
-5. Start container
+Add `-v $(pwd)/data:/app/data` to persist the database outside the container.
+The app initializes and seeds the database automatically on startup.
 
 ## Documentation
 
@@ -86,4 +84,6 @@ Or deploy to Portainer:
 
 ## Environment Variables
 
-See `.env.example` for available configuration options.
+- `NODE_ENV` - `development` for local, `production` in containers
+- `PORT` - Port for Next.js server (defaults to 3000)
+- `DATABASE_PATH` - Path to SQLite database file (defaults to `./data/app.db`)

@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install dependencies (include dev deps for build) and disable Husky hooks
+RUN HUSKY=0 npm ci && npm cache clean --force
 
 # Copy source code
 COPY . .
