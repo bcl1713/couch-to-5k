@@ -1,11 +1,28 @@
 import bcrypt from "bcrypt";
 import { randomUUID } from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getDb } from "./db";
 
 const SALT_ROUNDS = 10;
 const SESSION_COOKIE_NAME = "session_token";
 const SESSION_EXPIRY_DAYS = 30;
+
+function shouldUseSecureCookie(): boolean {
+  try {
+    const headerList = headers();
+    const forwardedProto = headerList.get("x-forwarded-proto");
+    if (forwardedProto) {
+      const proto = forwardedProto.split(",")[0].trim().toLowerCase();
+      if (proto) {
+        return proto === "https";
+      }
+    }
+  } catch {
+    // headers() can throw outside of a request context; fall back to env check
+  }
+
+  return process.env.NODE_ENV === "production";
+}
 
 export interface User {
   id: number;
@@ -55,9 +72,10 @@ export async function setSessionCookie(
   expiresAt: number
 ): Promise<void> {
   const cookieStore = await cookies();
+  const secure = shouldUseSecureCookie();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     expires: new Date(expiresAt * 1000),
     path: "/",

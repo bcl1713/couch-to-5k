@@ -11,6 +11,7 @@ import {
 import * as authModule from "../auth";
 
 const cookieStore = new Map<string, string>();
+const headerStore = new Map<string, string>();
 
 jest.mock("../db", () => {
   const prepare = jest.fn(() => ({
@@ -44,6 +45,10 @@ jest.mock("next/headers", () => ({
     delete: (name: string) => {
       cookieStore.delete(name);
     },
+  })),
+  headers: jest.fn(() => ({
+    get: (name: string) =>
+      headerStore.has(name) ? (headerStore.get(name) as string) : null,
   })),
 }));
 
