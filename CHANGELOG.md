@@ -1,3 +1,13 @@
+# [1.1.0](https://github.com/bcl1713/couch-to-5k/compare/v1.0.0...v1.1.0) (2025-12-19)
+
+### Bug Fixes
+
+- update workflow ([837d710](https://github.com/bcl1713/couch-to-5k/commit/837d71006d210c0cd2066d8d71b99e6e25b5e19f))
+
+### Features
+
+- document automated release process ([a7fd65d](https://github.com/bcl1713/couch-to-5k/commit/a7fd65df723688b2788e61c0cdcf8cdea5f207a8))
+
 # 1.0.0 (2025-12-19)
 
 ### Bug Fixes
