@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: couch-to-5k:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_PATH=/app/data/app.db
+    volumes:
+      - couch-to-5k-data:/app/data
+
+volumes:
+  couch-to-5k-data:

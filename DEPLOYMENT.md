@@ -139,42 +139,45 @@ docker run -d \
   couch-to-5k:v1.0.1
 ```
 
-### Option 3: Docker Compose (Advanced)
+### Option 3: Docker Compose (Recommended)
 
-Create `docker-compose.yml`:
+The application includes a `docker-compose.yml` file that orchestrates the app and ensures data persistence using a Docker volume.
 
 ```yaml
-version: "3.8"
-
 services:
-  couch-to-5k:
-    build: .
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: couch-to-5k:latest
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXTAUTH_SECRET=your-secret-key
-      - NEXTAUTH_URL=http://localhost:3000
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      - DATABASE_PATH=/app/data/app.db
+    volumes:
+      - couch-to-5k-data:/app/data
+
+volumes:
+  couch-to-5k-data:
 ```
 
-Deploy:
+#### Commands
 
 ```bash
+# Start the application in the background
 docker-compose up -d
-```
 
-Stop:
+# View logs
+docker-compose logs -f
 
-```bash
+# Stop and remove containers
 docker-compose down
 ```
+
+#### Data Persistence
+
+The database is stored in a Docker volume named `couch-to-5k-data`. This ensures that your user data and workout progress are preserved even if the container is removed or updated. The database file is located at `/app/data/app.db` inside the container.
 
 ## Environment Configuration
 

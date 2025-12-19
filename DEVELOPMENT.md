@@ -305,6 +305,29 @@ npm run docker:run
 
 App will be accessible at [http://localhost:3000](http://localhost:3000)
 
+## Database Migrations
+
+The application uses a versioned, file-based migration system for SQLite, managed via `better-sqlite3`.
+
+### Migration Structure
+
+Migrations are stored in `db/migrations/` as SQL files.
+Naming convention: `XXX_description.sql` (e.g., `001_initial_schema.sql`).
+
+### Creating a New Migration
+
+1. Create a new `.sql` file in `db/migrations/`.
+2. Increment the number prefix.
+3. Write your SQL statements (e.g., `ALTER TABLE`, `CREATE TABLE`).
+4. The migration will be applied automatically the next time the application starts.
+
+### How it Works
+
+- The `_migrations` table in the database tracks applied migrations.
+- On startup, `lib/migrations.ts` compares files in `db/migrations/` with the `_migrations` table.
+- New migrations are applied in a single transaction.
+- If a migration fails, the application will stop to prevent data corruption.
+
 ## Testing
 
 Currently manual testing is primary approach. Future additions:
