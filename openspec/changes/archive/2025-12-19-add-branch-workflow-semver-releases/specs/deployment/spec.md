@@ -64,5 +64,37 @@ changes are merged to `main`.
 
 - **WHEN** a user wants to deploy a specific version
 - **THEN** they can pull the image using
-  `<registry>/couch-to-5k:<version>`
+  `bcl1713/couch-to-5k:<version>`
 - **AND** the image with that version tag MUST be available
+
+### Requirement: Automated Code Review
+
+The system SHALL provide automated code review on all pull requests
+before merging.
+
+#### Scenario: Code review on PR creation
+
+- **WHEN** a pull request is created
+- **THEN** an automated code review MUST be triggered
+- **AND** the review SHOULD provide feedback on code quality, best
+  practices, and potential issues
+
+#### Scenario: Required checks before merge
+
+- **WHEN** a pull request is ready to merge
+- **THEN** automated code review MUST have completed
+- **AND** CI checks (tests, linting) MUST pass
+- **AND** branch protection rules MUST enforce these requirements
+
+### Requirement: Changelog Generation
+
+The system SHALL automatically generate a changelog when versions are
+released.
+
+#### Scenario: Changelog update on release
+
+- **WHEN** a version is bumped and released
+- **THEN** a CHANGELOG.md file MUST be updated with the new version
+- **AND** the changelog MUST include commit messages grouped by type
+  (features, fixes, breaking changes)
+- **AND** the changelog MUST be committed to the repository

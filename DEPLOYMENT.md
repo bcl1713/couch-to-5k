@@ -7,10 +7,56 @@ using Docker and Portainer.
 
 - Docker installed on your deployment server
 - Portainer installed and accessible (optional, for UI management)
-- GitHub account and repository access (to pull Docker images)
+- Docker Hub account (to pull pre-built images)
 - Basic knowledge of Docker and port management
 
-## Building the Docker Image
+## Automated Releases
+
+The application uses automated releases with semantic versioning.
+Every merge to `main` triggers:
+
+1. Automatic version bump based on commit messages
+2. Docker image build and push to Docker Hub
+3. Tagged with both version number and `latest`
+
+**Docker Hub Repository:** `bcl1713/couch-to-5k`
+
+## Pulling Pre-Built Images
+
+### Latest Version
+
+To pull the latest version:
+
+```bash
+docker pull bcl1713/couch-to-5k:latest
+```
+
+### Specific Version
+
+To pull a specific version (recommended for production):
+
+```bash
+# Pull version 0.2.0
+docker pull bcl1713/couch-to-5k:0.2.0
+
+# Pull version 1.0.0
+docker pull bcl1713/couch-to-5k:1.0.0
+```
+
+### Viewing Available Versions
+
+Visit the Docker Hub repository to see all available versions:
+<https://hub.docker.com/r/bcl1713/couch-to-5k/tags>
+
+Or use the Docker CLI:
+
+```bash
+# List all tags (requires curl and jq)
+curl -s https://hub.docker.com/v2/repositories/bcl1713/couch-to-5k/tags \
+  | jq -r '.results[].name'
+```
+
+## Building the Docker Image (Optional)
 
 ### Step 1: Build Locally (Development)
 
@@ -38,31 +84,18 @@ Verify the app is accessible at [http://localhost:3000](http://localhost:3000)
 
 ### Option 1: Portainer (Recommended for Self-Hosted)
 
-#### Prerequisites
+#### Portainer Prerequisites
 
 - Portainer installed on your server
 - Docker daemon running and accessible by Portainer
 - Port 3000 available on your server
 
-#### Steps
+#### Portainer Initial Deployment
 
-1. Build and tag the image:
-
-```bash
-docker build -t couch-to-5k:v1.0.0 .
-```
-
-2. Optional: Push to Docker Hub or private registry:
-
-```bash
-docker tag couch-to-5k:v1.0.0 yourusername/couch-to-5k:v1.0.0
-docker push yourusername/couch-to-5k:v1.0.0
-```
-
-3. In Portainer UI:
+1. In Portainer UI:
    1. Navigate to Containers → Create Container
    2. Enter container name: `couch-to-5k`
-   3. Image: `couch-to-5k:v1.0.0` (or registry URL)
+   3. Image: `bcl1713/couch-to-5k:0.2.0` (use specific version)
    4. Port mapping:
       - Container port: `3000`
       - Host port: `3000` (or your desired port)
@@ -70,32 +103,39 @@ docker push yourusername/couch-to-5k:v1.0.0
       - `NODE_ENV=production`
       - `NEXTAUTH_SECRET=your-secret-key-here`
       - `NEXTAUTH_URL=http://your-server-ip:3000`
-   6. Optional: Add restart policy (Always)
-   7. Deploy
+   6. Volumes (add):
+      - Container path: `/app/data`
+      - Volume: Create new volume named `couch-to-5k-data`
+   7. Restart policy: Always
+   8. Deploy
 
-4. Verify container is running and app is accessible
+2. Verify container is running and app is accessible
 
-#### Updating the Application
+#### Portainer Updates
 
-1. Build new image with updated tag:
+When a new version is released:
 
-```bash
-docker build -t couch-to-5k:v1.0.1 .
-```
-
+1. Check the latest version on Docker Hub or GitHub releases
 2. In Portainer:
-   1. Stop current container
-   2. Remove old image
-   3. Create new container with new image tag
-   4. Start new container
+   - Stop current container
+   - Remove current container (data is safe in the volume)
+   - Create new container with updated image tag:
+     - Image: `bcl1713/couch-to-5k:0.3.0` (new version)
+   - Use same port mappings, environment variables, and volume
+   - Deploy
+
+**Important:** Always use the same volume to preserve your data!
 
 ### Option 2: Docker CLI (Command Line)
 
-#### Initial Deployment
+#### CLI Initial Deployment
 
 ```bash
-# Build image
-docker build -t couch-to-5k:v1.0.0 .
+# Pull the specific version
+docker pull bcl1713/couch-to-5k:0.2.0
+
+# Create a volume for data persistence
+docker volume create couch-to-5k-data
 
 # Run container
 docker run -d \
@@ -104,8 +144,33 @@ docker run -d \
   -e NODE_ENV=production \
   -e NEXTAUTH_SECRET=your-secret-key \
   -e NEXTAUTH_URL=http://your-server:3000 \
+  -e DATABASE_PATH=/app/data/app.db \
+  -v couch-to-5k-data:/app/data \
   --restart=always \
-  couch-to-5k:v1.0.0
+  bcl1713/couch-to-5k:0.2.0
+```
+
+#### CLI Updates
+
+```bash
+# Pull new version
+docker pull bcl1713/couch-to-5k:0.3.0
+
+# Stop and remove old container
+docker stop couch-to-5k
+docker rm couch-to-5k
+
+# Start new container with new version
+docker run -d \
+  --name couch-to-5k \
+  -p 3000:3000 \
+  -e NODE_ENV=production \
+  -e NEXTAUTH_SECRET=your-secret-key \
+  -e NEXTAUTH_URL=http://your-server:3000 \
+  -e DATABASE_PATH=/app/data/app.db \
+  -v couch-to-5k-data:/app/data \
+  --restart=always \
+  bcl1713/couch-to-5k:0.3.0
 ```
 
 #### Useful Commands
@@ -117,49 +182,53 @@ docker ps
 # View container logs
 docker logs couch-to-5k
 
+# Follow logs in real-time
+docker logs -f couch-to-5k
+
 # Stop container
 docker stop couch-to-5k
 
 # Start container
 docker start couch-to-5k
 
-# Remove container
+# Remove container (data is safe in volume)
 docker rm couch-to-5k
 
-# Update application
-docker stop couch-to-5k
-docker rm couch-to-5k
-docker build -t couch-to-5k:v1.0.1 .
-docker run -d \
-  --name couch-to-5k \
-  -p 3000:3000 \
-  -e NODE_ENV=production \
-  -e NEXTAUTH_SECRET=your-secret-key \
-  --restart=always \
-  couch-to-5k:v1.0.1
+# List available versions locally
+docker images bcl1713/couch-to-5k
 ```
 
 ### Option 3: Docker Compose (Recommended)
 
-The application includes a `docker-compose.yml` file that orchestrates the app and ensures data persistence using a Docker volume.
+The application includes a `docker-compose.yml` file that orchestrates
+the app and ensures data persistence using a Docker volume.
+
+Update the `docker-compose.yml` to use the pre-built image:
 
 ```yaml
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: couch-to-5k:latest
+    image: bcl1713/couch-to-5k:0.2.0
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
       - DATABASE_PATH=/app/data/app.db
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
     volumes:
       - couch-to-5k-data:/app/data
+    restart: always
 
 volumes:
   couch-to-5k-data:
+```
+
+Create a `.env` file (don't commit this):
+
+```bash
+NEXTAUTH_SECRET=your-secret-key-here
+NEXTAUTH_URL=http://your-server:3000
 ```
 
 #### Commands
@@ -171,13 +240,57 @@ docker-compose up -d
 # View logs
 docker-compose logs -f
 
-# Stop and remove containers
+# Stop containers
+docker-compose stop
+
+# Stop and remove containers (data is safe in volume)
 docker-compose down
+
+# Update to new version
+# 1. Update image tag in docker-compose.yml
+# 2. Pull new image
+docker-compose pull
+# 3. Restart with new image
+docker-compose up -d
 ```
 
 #### Data Persistence
 
-The database is stored in a Docker volume named `couch-to-5k-data`. This ensures that your user data and workout progress are preserved even if the container is removed or updated. The database file is located at `/app/data/app.db` inside the container.
+The database is stored in a Docker volume named `couch-to-5k-data`.
+This ensures that your user data and workout progress are preserved
+even if the container is removed or updated. The database file is
+located at `/app/data/app.db` inside the container.
+
+## Version Management
+
+### Semantic Versioning
+
+The application follows semantic versioning (MAJOR.MINOR.PATCH):
+
+- **MAJOR** (1.0.0): Breaking changes, major API changes
+- **MINOR** (0.2.0): New features, non-breaking changes
+- **PATCH** (0.2.1): Bug fixes, minor updates
+
+### Choosing a Version
+
+**For production:**
+
+- Use specific version tags (e.g., `bcl1713/couch-to-5k:0.2.0`)
+- Pin to a specific version for stability
+- Update intentionally when new versions are released
+
+**For development/testing:**
+
+- Use `latest` tag for the newest version
+- Be aware it will change with each release
+
+### Version History
+
+Check the changelog for version history:
+
+- GitHub Releases:
+  <https://github.com/yourusername/couch-to-5k/releases>
+- CHANGELOG.md in the repository
 
 ## Environment Configuration
 

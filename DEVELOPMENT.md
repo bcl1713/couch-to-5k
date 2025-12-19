@@ -216,6 +216,11 @@ import { useWorkoutTimer } from "../../hooks/useWorkoutTimer";
 
 ## Git Workflow
 
+### Branch-Based Development
+
+**IMPORTANT:** All changes must be developed on feature branches. Direct pushes
+to `main` are not allowed.
+
 ### Branch Naming
 
 Use descriptive branch names with type prefixes:
@@ -227,39 +232,101 @@ git checkout -b refactor/hook-extraction    # Refactoring
 git checkout -b docs/deployment-guide       # Documentation
 ```
 
-### Commit Messages
+### Commit Messages (Conventional Commits)
 
-Follow conventional commits format:
+All commits MUST follow the conventional commits format. This is enforced by
+commitlint.
+
+**Format:** `<type>: <description>`
+
+**Types:**
+
+- `feat`: New feature (triggers MINOR version bump)
+- `fix`: Bug fix (triggers PATCH version bump)
+- `docs`: Documentation changes
+- `style`: Code style/formatting (no functional changes)
+- `refactor`: Code refactoring
+- `perf`: Performance improvements
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks
+- `ci`: CI/CD changes
+- `build`: Build system changes
+
+**Breaking Changes:** Add `!` after type or include `BREAKING CHANGE:` in
+footer (triggers MAJOR version bump)
+
+**Examples:**
 
 ```bash
-# Feature
+# Feature (MINOR version bump: 0.1.0 → 0.2.0)
 git commit -m "feat: add workout timer component"
 
-# Bug fix
+# Bug fix (PATCH version bump: 0.2.0 → 0.2.1)
 git commit -m "fix: correct interval duration calculation"
 
-# Refactoring
-git commit -m "refactor: extract timer logic into hook"
+# Breaking change (MAJOR version bump: 0.2.1 → 1.0.0)
+git commit -m "feat!: redesign authentication API"
 
-# Documentation
+# With breaking change footer
+git commit -m "feat: redesign authentication API
+
+BREAKING CHANGE: authentication endpoint moved from /auth to /api/auth"
+
+# Non-versioned changes
 git commit -m "docs: update development guide"
-
-# Chore
-git commit -m "chore: update dependencies"
+git commit -m "refactor: extract timer logic into hook"
 ```
 
 ### Creating a Pull Request
 
-1. Push your branch:
+1. Create a feature branch from `main`:
 
-```bash
-git push origin feat/your-feature
-```
+   ```bash
+   git checkout -b feat/your-feature
+   ```
 
-1. Create PR with description of changes
-1. Ensure CI checks pass (ESLint, TypeScript, tests)
-1. Request review
-1. Merge after approval
+2. Make changes and commit using conventional commits format
+
+3. Push your branch:
+
+   ```bash
+   git push origin feat/your-feature
+   ```
+
+4. Create PR on GitHub using the PR template
+5. Ensure automated checks pass:
+   - Linting (ESLint)
+   - Type checking (TypeScript)
+   - Tests (Jest)
+   - Formatting (Prettier)
+   - Automated code review (AI-powered)
+6. Review feedback and address comments
+7. Merge after all checks pass
+
+### Automated Versioning and Releases
+
+When your PR is merged to `main`:
+
+1. **Semantic-release** automatically:
+   - Analyzes commit messages since last release
+   - Determines version bump (MAJOR.MINOR.PATCH)
+   - Updates `package.json` version
+   - Generates `CHANGELOG.md` entry
+   - Creates git tag
+   - Creates GitHub release
+
+2. **Docker build** automatically:
+   - Builds Docker image
+   - Tags with version number (e.g., `bcl1713/couch-to-5k:0.2.0`)
+   - Tags with `latest`
+   - Pushes to Docker Hub
+
+**Version Bump Rules:**
+
+- `feat:` commits → MINOR bump (0.1.0 → 0.2.0)
+- `fix:` commits → PATCH bump (0.2.0 → 0.2.1)
+- `feat!:` or `BREAKING CHANGE:` → MAJOR bump (0.2.1 → 1.0.0)
+- Other types → No version bump
 
 ## Debugging
 
@@ -307,26 +374,31 @@ App will be accessible at [http://localhost:3000](http://localhost:3000)
 
 ## Database Migrations
 
-The application uses a versioned, file-based migration system for SQLite, managed via `better-sqlite3`.
+The application uses a versioned, file-based migration system for
+SQLite, managed via `better-sqlite3`.
 
 ### Migration Structure
 
 Migrations are stored in `db/migrations/` as SQL files.
-Naming convention: `XXX_description.sql` (e.g., `001_initial_schema.sql`).
+Naming convention: `XXX_description.sql` (e.g.,
+`001_initial_schema.sql`).
 
 ### Creating a New Migration
 
 1. Create a new `.sql` file in `db/migrations/`.
 2. Increment the number prefix.
 3. Write your SQL statements (e.g., `ALTER TABLE`, `CREATE TABLE`).
-4. The migration will be applied automatically the next time the application starts.
+4. The migration will be applied automatically the next time the
+   application starts.
 
 ### How it Works
 
 - The `_migrations` table in the database tracks applied migrations.
-- On startup, `lib/migrations.ts` compares files in `db/migrations/` with the `_migrations` table.
+- On startup, `lib/migrations.ts` compares files in `db/migrations/`
+  with the `_migrations` table.
 - New migrations are applied in a single transaction.
-- If a migration fails, the application will stop to prevent data corruption.
+- If a migration fails, the application will stop to prevent data
+  corruption.
 
 ## Testing
 
@@ -384,6 +456,21 @@ npm run prepare
 npx husky install
 ```
 
+### Commit rejected by commitlint
+
+If your commit is rejected, ensure it follows the conventional commits
+format:
+
+```bash
+# ❌ BAD
+git commit -m "added new feature"
+git commit -m "Fixed bug"
+
+# ✅ GOOD
+git commit -m "feat: add workout interval summary"
+git commit -m "fix: correct session cookie expiry"
+```
+
 ## Additional Resources
 
 - [Next.js Documentation](https://nextjs.org/docs)
@@ -391,3 +478,4 @@ npx husky install
 - [TypeScript Handbook](https://www.typescriptlang.org/docs)
 - [Tailwind CSS Docs](https://tailwindcss.com/docs)
 - [ESLint Rules](https://eslint.org/docs/rules)
+- [Conventional Commits](https://www.conventionalcommits.org)
