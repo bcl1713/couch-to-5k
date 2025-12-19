@@ -2,6 +2,7 @@ import {
   getFlattenedIntervals,
   calculateIntervalState,
   formatTime,
+  getIntervalSummary,
   WorkoutInterval,
 } from "../workout-utils";
 
@@ -159,6 +160,74 @@ describe("Workout Interval Utilities", () => {
       expect(formatTime(61)).toBe("1:01");
       expect(formatTime(121)).toBe("2:01");
       expect(formatTime(605)).toBe("10:05");
+    });
+  });
+
+  describe("getIntervalSummary", () => {
+    test("should format simple repeated intervals (Week 1 style)", () => {
+      const intervals: WorkoutInterval[] = [
+        { type: "jog", seconds: 60, repeat_with_next: true },
+        { type: "walk", seconds: 90, repeat_count: 8 },
+      ];
+
+      const summary = getIntervalSummary(intervals);
+      expect(summary).toBe("8x (60s jog, 90s walk)");
+    });
+
+    test("should format repeated intervals with minutes (Week 2 style)", () => {
+      const intervals: WorkoutInterval[] = [
+        { type: "jog", seconds: 90, repeat_with_next: true },
+        { type: "walk", seconds: 120, repeat_count: 8 },
+      ];
+
+      const summary = getIntervalSummary(intervals);
+      expect(summary).toBe("8x (90s jog, 2 min walk)");
+    });
+
+    test("should format single continuous interval (Week 7-9 style)", () => {
+      const intervals: WorkoutInterval[] = [{ type: "jog", seconds: 1500 }];
+
+      const summary = getIntervalSummary(intervals);
+      expect(summary).toBe("25 min jog");
+    });
+
+    test("should format complex mixed intervals (Week 4 style)", () => {
+      const intervals: WorkoutInterval[] = [
+        { type: "jog", seconds: 180 },
+        { type: "walk", seconds: 90 },
+        { type: "jog", seconds: 300 },
+        { type: "walk", seconds: 150 },
+        { type: "jog", seconds: 180 },
+        { type: "walk", seconds: 90 },
+        { type: "jog", seconds: 300 },
+      ];
+
+      const summary = getIntervalSummary(intervals);
+      expect(summary).toBe(
+        "3 min jog, 90s walk, 5 min jog, 2.5 min walk, 3 min jog, 90s walk, 5 min jog"
+      );
+    });
+
+    test("should handle empty intervals array", () => {
+      const summary = getIntervalSummary([]);
+      expect(summary).toBe("No intervals");
+    });
+
+    test("should format intervals with decimal minutes", () => {
+      const intervals: WorkoutInterval[] = [{ type: "walk", seconds: 150 }];
+
+      const summary = getIntervalSummary(intervals);
+      expect(summary).toBe("2.5 min walk");
+    });
+
+    test("should format non-repeating pattern with two intervals", () => {
+      const intervals: WorkoutInterval[] = [
+        { type: "jog", seconds: 480 },
+        { type: "walk", seconds: 300 },
+      ];
+
+      const summary = getIntervalSummary(intervals);
+      expect(summary).toBe("8 min jog, 5 min walk");
     });
   });
 });

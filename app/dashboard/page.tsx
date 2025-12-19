@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getIntervalSummary } from "@/lib/workout-utils";
 
 interface WorkoutInterval {
   type: "walk" | "jog";
@@ -167,9 +168,16 @@ export default function DashboardPage() {
               Week {progress?.currentWeek} - Workout {progress?.currentWorkout}
             </p>
             {progress?.nextWorkout && (
-              <p className="text-gray-600 mt-2">
-                Duration: {formatDuration(progress.nextWorkout.durationSeconds)}
-              </p>
+              <>
+                <p className="text-gray-600 mt-2">
+                  Duration:{" "}
+                  {formatDuration(progress.nextWorkout.durationSeconds)}
+                </p>
+                <p className="text-gray-700 mt-1 text-sm">
+                  Intervals:{" "}
+                  {getIntervalSummary(progress.nextWorkout.intervals.intervals)}
+                </p>
+              </>
             )}
           </div>
 

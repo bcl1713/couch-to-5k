@@ -111,3 +111,69 @@ export function formatTime(seconds: number): string {
   const secs = seconds % 60;
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
+
+/**
+ * Formats seconds into a readable duration (e.g., "60s", "3 min", "2.5 min")
+ */
+function formatDuration(seconds: number): string {
+  if (seconds < 120) {
+    return `${seconds}s`;
+  }
+  const mins = seconds / 60;
+  if (mins % 1 === 0) {
+    return `${mins} min`;
+  }
+  return `${mins.toFixed(1)} min`;
+}
+
+/**
+ * Generates a human-readable summary of workout intervals
+ */
+export function getIntervalSummary(intervals: WorkoutInterval[]): string {
+  const flattened = getFlattenedIntervals(intervals);
+
+  if (flattened.length === 0) {
+    return "No intervals";
+  }
+
+  // Check if it's a single continuous interval
+  if (flattened.length === 1) {
+    return `${formatDuration(flattened[0].seconds)} ${flattened[0].type}`;
+  }
+
+  // Check if it's a repeating pattern (all pairs are identical)
+  // Only show as repeating if there are 2 or more pairs
+  if (flattened.length % 2 === 0 && flattened.length >= 4) {
+    const pairSize = 2;
+    const numPairs = flattened.length / pairSize;
+    let isRepeating = true;
+
+    for (let i = 0; i < flattened.length; i += pairSize) {
+      const first = flattened[i];
+      const second = flattened[i + 1];
+      const refFirst = flattened[0];
+      const refSecond = flattened[1];
+
+      if (
+        first.type !== refFirst.type ||
+        first.seconds !== refFirst.seconds ||
+        second.type !== refSecond.type ||
+        second.seconds !== refSecond.seconds
+      ) {
+        isRepeating = false;
+        break;
+      }
+    }
+
+    if (isRepeating) {
+      const first = flattened[0];
+      const second = flattened[1];
+      return `${numPairs}x (${formatDuration(first.seconds)} ${first.type}, ${formatDuration(second.seconds)} ${second.type})`;
+    }
+  }
+
+  // Complex pattern: list all intervals
+  return flattened
+    .map((interval) => `${formatDuration(interval.seconds)} ${interval.type}`)
+    .join(", ");
+}
