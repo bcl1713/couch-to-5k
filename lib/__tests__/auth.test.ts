@@ -8,7 +8,6 @@ import {
   clearSessionCookie,
   getCurrentUser,
 } from "../auth";
-import * as authModule from "../auth";
 
 const cookieStore = new Map<string, string>();
 const headerStore = new Map<string, string>();
