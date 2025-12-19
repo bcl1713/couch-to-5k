@@ -87,3 +87,7 @@ The app initializes and seeds the database automatically on startup.
 - `NODE_ENV` - `development` for local, `production` in containers
 - `PORT` - Port for Next.js server (defaults to 3000)
 - `DATABASE_PATH` - Path to SQLite database file (defaults to `./data/app.db`)
+
+## Automated Releases
+
+This project uses semantic versioning.
