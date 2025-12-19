@@ -44,6 +44,7 @@ jobs:
         uses: cycjimmy/semantic-release-action@v4
         with:
           branch: main
+          dry_run: false
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           GIT_AUTHOR_NAME: github-actions[bot]
