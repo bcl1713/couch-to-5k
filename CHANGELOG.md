@@ -1,3 +1,11 @@
+## [1.1.1](https://github.com/bcl1713/couch-to-5k/compare/v1.1.0...v1.1.1) (2025-12-19)
+
+### Bug Fixes
+
+- added dry_run: false ([972735a](https://github.com/bcl1713/couch-to-5k/commit/972735abfc09c8197239b0ca742270a55bbd8493))
+- default branch for Semantic Release ([33e421f](https://github.com/bcl1713/couch-to-5k/commit/33e421fda98680ca9968c3db203c8199a685e482))
+- use semantic-release action to properly set outputs ([4f120cd](https://github.com/bcl1713/couch-to-5k/commit/4f120cd55453c7d9d44a729e772c6f22922cbb4a))
+
 # [1.1.0](https://github.com/bcl1713/couch-to-5k/compare/v1.0.0...v1.1.0) (2025-12-19)
 
 ### Bug Fixes
