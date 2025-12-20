@@ -50,6 +50,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showMarkCompleteDialog, setShowMarkCompleteDialog] = useState(false);
   const [markingComplete, setMarkingComplete] = useState(false);
+  const [markCompleteError, setMarkCompleteError] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     const fetchData = async () => {
@@ -93,6 +96,7 @@ export default function DashboardPage() {
 
   const handleMarkComplete = async () => {
     setMarkingComplete(true);
+    setMarkCompleteError(null);
     try {
       const res = await fetch("/api/workouts/mark-complete", {
         method: "POST",
@@ -102,12 +106,27 @@ export default function DashboardPage() {
 
       if (res.ok) {
         window.location.reload();
+      } else {
+        // Handle error response (including offline 503)
+        const errorData = await res.json().catch(() => ({}));
+        const errorMessage = errorData.error || `Server error (${res.status})`;
+
+        // Show user-friendly message
+        if (errorData.offline && errorData.queued) {
+          setMarkCompleteError(
+            "You're offline. Your completion has been saved and will sync when you're back online."
+          );
+        } else {
+          setMarkCompleteError(errorMessage);
+        }
       }
     } catch (error) {
       console.error("Error marking complete:", error);
+      setMarkCompleteError(
+        "Unable to connect. Please check your internet connection."
+      );
     } finally {
       setMarkingComplete(false);
-      setShowMarkCompleteDialog(false);
     }
   };
 
@@ -244,9 +263,17 @@ export default function DashboardPage() {
               Are you sure you want to mark Week {progress?.currentWeek},
               Workout {progress?.currentWorkout} as complete?
             </p>
+            {markCompleteError && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                {markCompleteError}
+              </div>
+            )}
             <div className="flex gap-3">
               <button
-                onClick={() => setShowMarkCompleteDialog(false)}
+                onClick={() => {
+                  setShowMarkCompleteDialog(false);
+                  setMarkCompleteError(null);
+                }}
                 className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded hover:bg-gray-300 min-h-[44px]"
                 disabled={markingComplete}
               >
