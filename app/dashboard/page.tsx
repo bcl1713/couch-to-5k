@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getIntervalSummary } from "@/lib/workout-utils";
+import { Alert } from "@/components/Alert";
 
 interface WorkoutInterval {
   type: "walk" | "jog";
@@ -330,9 +331,7 @@ export default function DashboardPage() {
               Workout {progress?.currentWorkout} as complete?
             </p>
             {markCompleteError && (
-              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-                {markCompleteError}
-              </div>
+              <Alert variant="warning">{markCompleteError}</Alert>
             )}
             <div className="flex gap-3">
               <button
