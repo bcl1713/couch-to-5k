@@ -1,7 +1,7 @@
 // Couch to 5K Service Worker
 // Cache-first strategy for offline-first experience
 
-const CACHE_VERSION = "c25k-v7";
+const CACHE_VERSION = "c25k-v8";
 const CACHE_NAME = `couch-to-5k-${CACHE_VERSION}`;
 const OFFLINE_QUEUE_NAME = "offline-requests-queue";
 
@@ -26,7 +26,7 @@ self.addEventListener("install", (event) => {
         });
       })
       .then(() => {
-        console.log("Service Worker v7 installed");
+        console.log("Service Worker v8 installed");
       })
   );
   // Force waiting service worker to become active
@@ -35,7 +35,7 @@ self.addEventListener("install", (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener("activate", (event) => {
-  console.log("Service Worker v7 activating...");
+  console.log("Service Worker v8 activating...");
   event.waitUntil(
     caches
       .keys()
@@ -78,7 +78,7 @@ self.addEventListener("activate", (event) => {
         });
       })
       .then(() => {
-        console.log("Service Worker v7 activated and ready");
+        console.log("Service Worker v8 activated and ready");
         // Take control of all pages after cleanup completes
         return self.clients.claim();
       })
@@ -170,6 +170,90 @@ function notifyClients(message) {
   });
 }
 
+// Helper: Check if request has expired
+function isRequestExpired(reqData, maxAge) {
+  return Date.now() - reqData.timestamp > maxAge;
+}
+
+// Helper: Check if request exceeded max retries
+function hasExceededRetries(reqData) {
+  const retryCount = reqData.retryCount || 0;
+  const maxRetries = reqData.maxRetries || 5;
+  return retryCount >= maxRetries;
+}
+
+// Helper: Handle successful sync
+async function handleSuccessfulSync(db, reqData) {
+  await deleteRequestFromQueue(db, reqData.id);
+  notifyClients({
+    type: "SYNC_SUCCESS",
+    url: reqData.url,
+  });
+  console.log("Successfully synced request:", reqData.url);
+  return { success: true };
+}
+
+// Helper: Handle client error (4xx)
+async function handleClientError(db, reqData, response) {
+  await deleteRequestFromQueue(db, reqData.id);
+  notifyClients({
+    type: "SYNC_FAILED",
+    url: reqData.url,
+    reason: `Client error: ${response.status}`,
+  });
+  console.log(`Request failed permanently (${response.status}):`, reqData.url);
+  return { failed: true };
+}
+
+// Helper: Handle server error (5xx)
+async function handleServerError(db, reqData, response) {
+  await incrementRetryCount(db, reqData.id);
+  console.log(
+    `Server error ${response.status} for ${reqData.url}, will retry later`
+  );
+  return { retry: true };
+}
+
+// Helper: Handle network error
+async function handleNetworkError(db, reqData, error) {
+  await incrementRetryCount(db, reqData.id);
+  console.log(`Network error for ${reqData.url}, will retry later:`, error);
+  return { retry: true };
+}
+
+// Helper: Process a single queued request
+async function processQueuedRequest(db, reqData) {
+  try {
+    const response = await fetch(reqData.url, {
+      method: reqData.method,
+      headers: reqData.headers,
+      body: reqData.body,
+    });
+
+    if (response.ok) {
+      return await handleSuccessfulSync(db, reqData);
+    } else if (response.status >= 400 && response.status < 500) {
+      return await handleClientError(db, reqData, response);
+    } else if (response.status >= 500) {
+      return await handleServerError(db, reqData, response);
+    }
+  } catch (error) {
+    return await handleNetworkError(db, reqData, error);
+  }
+
+  return { retry: true };
+}
+
+// Helper: Validate if response should be cached
+function shouldCacheResponse(response) {
+  // Cache successful responses (200-299) and 304 Not Modified
+  return (
+    response &&
+    ((response.status >= 200 && response.status < 300) ||
+      response.status === 304)
+  );
+}
+
 // Helper: Process queued requests when back online
 async function processOfflineQueue() {
   const MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
@@ -193,7 +277,7 @@ async function processOfflineQueue() {
 
     for (const reqData of requests) {
       // Check if request is too old
-      if (Date.now() - reqData.timestamp > MAX_AGE) {
+      if (isRequestExpired(reqData, MAX_AGE)) {
         await deleteRequestFromQueue(db, reqData.id);
         expiredCount++;
         console.log("Request expired:", reqData.url);
@@ -201,9 +285,7 @@ async function processOfflineQueue() {
       }
 
       // Check if max retries exceeded
-      const retryCount = reqData.retryCount || 0;
-      const maxRetries = reqData.maxRetries || 5;
-      if (retryCount >= maxRetries) {
+      if (hasExceededRetries(reqData)) {
         await deleteRequestFromQueue(db, reqData.id);
         failedCount++;
         notifyClients({
@@ -215,50 +297,15 @@ async function processOfflineQueue() {
         continue;
       }
 
-      try {
-        const response = await fetch(reqData.url, {
-          method: reqData.method,
-          headers: reqData.headers,
-          body: reqData.body,
-        });
+      // Process the request
+      const result = await processQueuedRequest(db, reqData);
 
-        if (response.ok) {
-          // Success - remove from queue
-          await deleteRequestFromQueue(db, reqData.id);
-          successCount++;
-          notifyClients({
-            type: "SYNC_SUCCESS",
-            url: reqData.url,
-          });
-          console.log("Successfully synced request:", reqData.url);
-        } else if (response.status >= 400 && response.status < 500) {
-          // Client error - likely permanent, remove from queue
-          await deleteRequestFromQueue(db, reqData.id);
-          failedCount++;
-          notifyClients({
-            type: "SYNC_FAILED",
-            url: reqData.url,
-            reason: `Client error: ${response.status}`,
-          });
-          console.log(
-            `Request failed permanently (${response.status}):`,
-            reqData.url
-          );
-        } else if (response.status >= 500) {
-          // Server error - transient, increment retry
-          await incrementRetryCount(db, reqData.id);
-          console.log(
-            `Server error ${response.status} for ${reqData.url}, will retry later`
-          );
-        }
-      } catch (error) {
-        // Network error - increment retry and continue
-        await incrementRetryCount(db, reqData.id);
-        console.log(
-          `Network error for ${reqData.url}, will retry later:`,
-          error
-        );
+      if (result.success) {
+        successCount++;
+      } else if (result.failed) {
+        failedCount++;
       }
+      // If result.retry, we just continue to the next request
     }
 
     console.log(
@@ -286,7 +333,15 @@ self.addEventListener("message", (event) => {
 });
 
 // Helper: Determine if a request should be queued for offline sync
-function shouldQueueRequest(pathname, method) {
+function shouldQueueRequest(request, pathname, method) {
+  // Check for X-Queue-Offline header (preferred method)
+  // This allows backend to explicitly control queueing behavior
+  const queueHeader = request.headers.get("X-Queue-Offline");
+  if (queueHeader !== null) {
+    return queueHeader === "true" || queueHeader === "1";
+  }
+
+  // Fallback to pathname-based logic for backward compatibility
   // Don't queue GET requests - they don't modify data
   if (method === "GET") {
     return false;
@@ -324,7 +379,11 @@ self.addEventListener("fetch", (event) => {
 
         // Determine if this request should be queued for later
         let queued = false;
-        const shouldQueue = shouldQueueRequest(url.pathname, request.method);
+        const shouldQueue = shouldQueueRequest(
+          request,
+          url.pathname,
+          request.method
+        );
 
         if (shouldQueue) {
           try {
@@ -361,12 +420,24 @@ self.addEventListener("fetch", (event) => {
     (request.method === "GET" &&
       request.headers.get("accept")?.includes("text/html"));
 
+  // Check if this is a static asset (images, scripts, styles, fonts, etc.)
+  const isStaticAsset =
+    request.destination === "image" ||
+    request.destination === "script" ||
+    request.destination === "style" ||
+    request.destination === "font" ||
+    request.destination === "manifest" ||
+    url.pathname.match(
+      /\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|ico)$/
+    );
+
   if (isDocument) {
     // Network-first for HTML documents - ensures fresh content
     event.respondWith(
       fetch(request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
+          // Only cache successful responses
+          if (shouldCacheResponse(networkResponse)) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(request, responseToCache);
@@ -386,7 +457,7 @@ self.addEventListener("fetch", (event) => {
           });
         })
     );
-  } else {
+  } else if (isStaticAsset) {
     // Cache-first for static assets - fast loading
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
@@ -395,7 +466,8 @@ self.addEventListener("fetch", (event) => {
           event.waitUntil(
             fetch(request)
               .then((networkResponse) => {
-                if (networkResponse && networkResponse.status === 200) {
+                // Only cache valid responses
+                if (shouldCacheResponse(networkResponse)) {
                   caches.open(CACHE_NAME).then((cache) => {
                     cache.put(request, networkResponse.clone());
                   });
@@ -412,8 +484,8 @@ self.addEventListener("fetch", (event) => {
         // Not in cache, fetch from network
         return fetch(request)
           .then((networkResponse) => {
-            // Cache successful responses for GET requests
-            if (networkResponse && networkResponse.status === 200) {
+            // Cache valid responses for GET requests
+            if (shouldCacheResponse(networkResponse)) {
               const responseToCache = networkResponse.clone();
               caches.open(CACHE_NAME).then((cache) => {
                 cache.put(request, responseToCache);
@@ -426,6 +498,14 @@ self.addEventListener("fetch", (event) => {
             console.error("Fetch failed:", error);
             throw error;
           });
+      })
+    );
+  } else {
+    // Default: network-only for other requests (e.g., external resources, data fetches)
+    event.respondWith(
+      fetch(request).catch((error) => {
+        console.error("Network request failed:", url.pathname, error);
+        throw error;
       })
     );
   }
