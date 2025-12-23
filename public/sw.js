@@ -53,10 +53,10 @@ self.addEventListener("activate", (event) => {
       })
       .then(() => {
         console.log("Service Worker v6 activated and ready");
+        // Take control of all pages after cleanup completes
+        return self.clients.claim();
       })
   );
-  // Take control of all pages immediately
-  self.clients.claim();
 });
 
 // Helper: Queue offline API requests
