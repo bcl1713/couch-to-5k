@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { apiPost } from "@/lib/api-client";
 
 interface WorkoutInterval {
   type: "walk" | "jog";
@@ -70,13 +71,14 @@ export default function WorkoutActivePage() {
   useEffect(() => {
     const startSession = async () => {
       try {
-        const res = await fetch("/api/workouts/start", { method: "POST" });
+        const res = await apiPost<WorkoutSession>("/api/workouts/start");
         if (!res.ok) {
           router.push("/dashboard");
           return;
         }
-        const data = await res.json();
-        setSession(data);
+        if (res.data) {
+          setSession(res.data);
+        }
       } catch (error) {
         console.error("Error starting workout:", error);
         router.push("/dashboard");
@@ -214,9 +216,7 @@ export default function WorkoutActivePage() {
     if (!session) return;
     setIsPaused(true);
     try {
-      await fetch(`/api/workouts/${session.sessionId}/pause`, {
-        method: "POST",
-      });
+      await apiPost(`/api/workouts/${session.sessionId}/pause`);
     } catch (error) {
       console.error("Error pausing workout:", error);
     }
@@ -226,9 +226,7 @@ export default function WorkoutActivePage() {
     if (!session) return;
     setIsPaused(false);
     try {
-      await fetch(`/api/workouts/${session.sessionId}/resume`, {
-        method: "POST",
-      });
+      await apiPost(`/api/workouts/${session.sessionId}/resume`);
     } catch (error) {
       console.error("Error resuming workout:", error);
     }
@@ -237,9 +235,7 @@ export default function WorkoutActivePage() {
   const handleComplete = useCallback(async () => {
     if (!session) return;
     try {
-      await fetch(`/api/workouts/${session.sessionId}/complete`, {
-        method: "POST",
-      });
+      await apiPost(`/api/workouts/${session.sessionId}/complete`);
       router.push("/workout/complete");
     } catch (error) {
       console.error("Error completing workout:", error);
@@ -249,9 +245,7 @@ export default function WorkoutActivePage() {
   const handleQuit = async () => {
     if (!session) return;
     try {
-      await fetch(`/api/workouts/${session.sessionId}/quit`, {
-        method: "POST",
-      });
+      await apiPost(`/api/workouts/${session.sessionId}/quit`);
       router.push("/dashboard");
     } catch (error) {
       console.error("Error quitting workout:", error);

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getIntervalSummary } from "@/lib/workout-utils";
 import { Alert } from "@/components/Alert";
+import { useWorkoutCompletion } from "@/hooks/useWorkoutCompletion";
 
 interface WorkoutInterval {
   type: "walk" | "jog";
@@ -50,10 +51,21 @@ export default function DashboardPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showMarkCompleteDialog, setShowMarkCompleteDialog] = useState(false);
-  const [markingComplete, setMarkingComplete] = useState(false);
-  const [markCompleteError, setMarkCompleteError] = useState<string | null>(
-    null
-  );
+
+  const {
+    markComplete,
+    isLoading: markingComplete,
+    error: markCompleteError,
+    clearError: clearMarkCompleteError,
+  } = useWorkoutCompletion({
+    progress,
+    history,
+    onProgressUpdate: setProgress,
+    onHistoryUpdate: setHistory,
+    onSuccess: () => {
+      setShowMarkCompleteDialog(false);
+    },
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -93,108 +105,6 @@ export default function DashboardPage() {
 
   const handleStartWorkout = async () => {
     router.push("/workout/active");
-  };
-
-  const handleMarkComplete = async () => {
-    if (!progress?.nextWorkout) return;
-
-    setMarkingComplete(true);
-    setMarkCompleteError(null);
-
-    // Store snapshots for rollback
-    const previousProgress = progress;
-    const previousHistory = history;
-
-    // Calculate next workout optimistically
-    const currentWeek = progress.currentWeek;
-    const currentWorkout = progress.currentWorkout;
-    let nextWeek = currentWeek;
-    let nextWorkout = currentWorkout + 1;
-
-    // Handle week transitions and program completion
-    if (currentWorkout === 3) {
-      if (currentWeek < 9) {
-        nextWeek = currentWeek + 1;
-        nextWorkout = 1;
-      } else {
-        // Stay at week 9, workout 3 (program complete)
-        nextWeek = 9;
-        nextWorkout = 3;
-      }
-    }
-
-    // Create optimistic history item
-    const newHistoryItem: HistoryItem = {
-      id: Date.now(), // Temporary ID
-      week: currentWeek,
-      workoutNumber: currentWorkout,
-      completedAt: Math.floor(Date.now() / 1000),
-      type: "manual_completion",
-    };
-
-    // Optimistically update state
-    setHistory([newHistoryItem, ...previousHistory]);
-    setProgress({
-      ...previousProgress,
-      currentWeek: nextWeek,
-      currentWorkout: nextWorkout,
-      lastCompletedAt: newHistoryItem.completedAt,
-      // Set nextWorkout to null temporarily - will be updated from API
-      nextWorkout: null,
-    });
-
-    try {
-      const res = await fetch("/api/workouts/mark-complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-
-      if (res.ok) {
-        // Fetch updated progress to get the full nextWorkout data
-        const progressRes = await fetch("/api/user/progress");
-
-        if (progressRes.ok) {
-          const progressData = await progressRes.json();
-          setProgress(progressData);
-          setShowMarkCompleteDialog(false);
-          setMarkCompleteError(null);
-        } else {
-          // If progress fetch fails, rollback
-          setProgress(previousProgress);
-          setHistory(previousHistory);
-          setMarkCompleteError("Failed to update progress. Please try again.");
-        }
-      } else {
-        // Rollback on error
-        setProgress(previousProgress);
-        setHistory(previousHistory);
-
-        // Handle error response (including offline 503)
-        const errorData = await res.json().catch(() => ({}));
-        const errorMessage = errorData.error || `Server error (${res.status})`;
-
-        // Show user-friendly message
-        if (errorData.offline && errorData.queued) {
-          setMarkCompleteError(
-            "You're offline. Your completion has been saved and will sync when you're back online."
-          );
-        } else {
-          setMarkCompleteError(errorMessage);
-        }
-      }
-    } catch (error) {
-      // Rollback on network error
-      setProgress(previousProgress);
-      setHistory(previousHistory);
-
-      console.error("Error marking complete:", error);
-      setMarkCompleteError(
-        "Unable to connect. Please check your internet connection."
-      );
-    } finally {
-      setMarkingComplete(false);
-    }
   };
 
   const formatDuration = (seconds: number) => {
@@ -275,7 +185,10 @@ export default function DashboardPage() {
               Start Workout
             </button>
             <button
-              onClick={() => setShowMarkCompleteDialog(true)}
+              onClick={() => {
+                setShowMarkCompleteDialog(true);
+                clearMarkCompleteError();
+              }}
               className="flex-1 bg-gray-200 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-300 transition min-h-[44px]"
             >
               Mark Complete
@@ -337,7 +250,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => {
                   setShowMarkCompleteDialog(false);
-                  setMarkCompleteError(null);
+                  clearMarkCompleteError();
                 }}
                 className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded hover:bg-gray-300 min-h-[44px]"
                 disabled={markingComplete}
@@ -345,7 +258,7 @@ export default function DashboardPage() {
                 Cancel
               </button>
               <button
-                onClick={handleMarkComplete}
+                onClick={markComplete}
                 className="flex-1 bg-indigo-600 text-white py-3 px-4 rounded hover:bg-indigo-700 disabled:opacity-50 min-h-[44px]"
                 disabled={markingComplete}
               >

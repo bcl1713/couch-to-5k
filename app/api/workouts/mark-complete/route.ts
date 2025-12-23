@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { calculateNextWorkout } from "@/lib/progress-utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,20 +58,11 @@ export async function POST(request: NextRequest) {
        VALUES (?, ?, ?, ?, 'completed', 'manual_completion')`
     ).run(user.id, workout.id, completionDate, completionDate);
 
-    // Advance progress
-    let nextWeek = progress.current_week;
-    let nextWorkout = progress.current_workout + 1;
-
-    if (nextWorkout > 3) {
-      nextWeek += 1;
-      nextWorkout = 1;
-    }
-
-    // Cap at week 9, workout 3
-    if (nextWeek > 9) {
-      nextWeek = 9;
-      nextWorkout = 3;
-    }
+    // Advance progress using shared utility
+    const { nextWeek, nextWorkout } = calculateNextWorkout(
+      progress.current_week,
+      progress.current_workout
+    );
 
     db.prepare(
       "UPDATE user_progress SET current_week = ?, current_workout = ?, last_completed_at = ? WHERE user_id = ?"
