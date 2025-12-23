@@ -68,6 +68,9 @@ async function queueOfflineRequest(request) {
     headers: Object.fromEntries(request.headers.entries()),
     body: request.method !== "GET" ? await request.text() : null,
     timestamp: Date.now(),
+    retryCount: 0,
+    lastAttempt: null,
+    maxRetries: 5,
   };
 
   const tx = db.transaction("requests", "readwrite");
@@ -83,7 +86,7 @@ async function queueOfflineRequest(request) {
 // Helper: Open IndexedDB for offline queue
 function openOfflineDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(OFFLINE_QUEUE_NAME, 1);
+    const request = indexedDB.open(OFFLINE_QUEUE_NAME, 2);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
@@ -100,8 +103,51 @@ function openOfflineDB() {
   });
 }
 
+// Helper: Delete a request from the queue
+async function deleteRequestFromQueue(db, id) {
+  const deleteTx = db.transaction("requests", "readwrite");
+  const deleteStore = deleteTx.objectStore("requests");
+  await new Promise((resolve, reject) => {
+    const request = deleteStore.delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// Helper: Increment retry count for a request
+async function incrementRetryCount(db, id) {
+  const updateTx = db.transaction("requests", "readwrite");
+  const updateStore = updateTx.objectStore("requests");
+
+  const reqData = await new Promise((resolve, reject) => {
+    const request = updateStore.get(id);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+
+  reqData.retryCount = (reqData.retryCount || 0) + 1;
+  reqData.lastAttempt = Date.now();
+
+  await new Promise((resolve, reject) => {
+    const request = updateStore.put(reqData);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// Helper: Notify all clients
+function notifyClients(message) {
+  self.clients.matchAll().then((clients) => {
+    clients.forEach((client) => {
+      client.postMessage(message);
+    });
+  });
+}
+
 // Helper: Process queued requests when back online
 async function processOfflineQueue() {
+  const MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
+
   try {
     const db = await openOfflineDB();
     const tx = db.transaction("requests", "readonly");
@@ -115,8 +161,34 @@ async function processOfflineQueue() {
     });
 
     console.log(`Processing ${requests.length} queued requests`);
+    let successCount = 0;
+    let failedCount = 0;
+    let expiredCount = 0;
 
     for (const reqData of requests) {
+      // Check if request is too old
+      if (Date.now() - reqData.timestamp > MAX_AGE) {
+        await deleteRequestFromQueue(db, reqData.id);
+        expiredCount++;
+        console.log("Request expired:", reqData.url);
+        continue;
+      }
+
+      // Check if max retries exceeded
+      const retryCount = reqData.retryCount || 0;
+      const maxRetries = reqData.maxRetries || 5;
+      if (retryCount >= maxRetries) {
+        await deleteRequestFromQueue(db, reqData.id);
+        failedCount++;
+        notifyClients({
+          type: "SYNC_FAILED",
+          url: reqData.url,
+          reason: "Max retries exceeded",
+        });
+        console.log("Request failed permanently (max retries):", reqData.url);
+        continue;
+      }
+
       try {
         const response = await fetch(reqData.url, {
           method: reqData.method,
@@ -125,20 +197,55 @@ async function processOfflineQueue() {
         });
 
         if (response.ok) {
-          // Successfully synced, remove from queue
-          const deleteTx = db.transaction("requests", "readwrite");
-          const deleteStore = deleteTx.objectStore("requests");
-          await new Promise((resolve, reject) => {
-            const request = deleteStore.delete(reqData.id);
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
+          // Success - remove from queue
+          await deleteRequestFromQueue(db, reqData.id);
+          successCount++;
+          notifyClients({
+            type: "SYNC_SUCCESS",
+            url: reqData.url,
           });
           console.log("Successfully synced request:", reqData.url);
+        } else if (response.status >= 400 && response.status < 500) {
+          // Client error - likely permanent, remove from queue
+          await deleteRequestFromQueue(db, reqData.id);
+          failedCount++;
+          notifyClients({
+            type: "SYNC_FAILED",
+            url: reqData.url,
+            reason: `Client error: ${response.status}`,
+          });
+          console.log(
+            `Request failed permanently (${response.status}):`,
+            reqData.url
+          );
+        } else if (response.status >= 500) {
+          // Server error - transient, increment retry
+          await incrementRetryCount(db, reqData.id);
+          console.log(
+            `Server error ${response.status} for ${reqData.url}, will retry later`
+          );
         }
       } catch (error) {
-        console.log("Still offline, will retry later:", error);
-        break; // Stop processing if network is still unavailable
+        // Network error - increment retry and continue
+        await incrementRetryCount(db, reqData.id);
+        console.log(
+          `Network error for ${reqData.url}, will retry later:`,
+          error
+        );
       }
+    }
+
+    console.log(
+      `Queue processing complete: ${successCount} synced, ${failedCount} failed, ${expiredCount} expired`
+    );
+
+    if (successCount > 0 || failedCount > 0) {
+      notifyClients({
+        type: "QUEUE_SUMMARY",
+        synced: successCount,
+        failed: failedCount,
+        expired: expiredCount,
+      });
     }
   } catch (error) {
     console.error("Error processing offline queue:", error);
