@@ -1,7 +1,7 @@
 // Couch to 5K Service Worker
 // Cache-first strategy for offline-first experience
 
-const CACHE_VERSION = "c25k-v6";
+const CACHE_VERSION = "c25k-v7";
 const CACHE_NAME = `couch-to-5k-${CACHE_VERSION}`;
 const OFFLINE_QUEUE_NAME = "offline-requests-queue";
 
@@ -26,7 +26,7 @@ self.addEventListener("install", (event) => {
         });
       })
       .then(() => {
-        console.log("Service Worker v6 installed");
+        console.log("Service Worker v7 installed");
       })
   );
   // Force waiting service worker to become active
@@ -35,7 +35,7 @@ self.addEventListener("install", (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener("activate", (event) => {
-  console.log("Service Worker v6 activating...");
+  console.log("Service Worker v7 activating...");
   event.waitUntil(
     caches
       .keys()
@@ -52,7 +52,7 @@ self.addEventListener("activate", (event) => {
         );
       })
       .then(() => {
-        console.log("Service Worker v6 activated and ready");
+        console.log("Service Worker v7 activated and ready");
         // Take control of all pages after cleanup completes
         return self.clients.claim();
       })
@@ -328,32 +328,18 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Handle GET requests with cache-first strategy
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Return cached response and update cache in background
-        event.waitUntil(
-          fetch(request)
-            .then((networkResponse) => {
-              if (networkResponse && networkResponse.status === 200) {
-                caches.open(CACHE_NAME).then((cache) => {
-                  cache.put(request, networkResponse.clone());
-                });
-              }
-              return networkResponse;
-            })
-            .catch(() => {
-              // Network failed, but we already returned cached version
-            })
-        );
-        return cachedResponse;
-      }
+  // Different caching strategies based on request type
+  const isDocument =
+    request.destination === "document" ||
+    request.mode === "navigate" ||
+    (request.method === "GET" &&
+      request.headers.get("accept")?.includes("text/html"));
 
-      // Not in cache, fetch from network
-      return fetch(request)
+  if (isDocument) {
+    // Network-first for HTML documents - ensures fresh content
+    event.respondWith(
+      fetch(request)
         .then((networkResponse) => {
-          // Cache successful responses for GET requests
           if (networkResponse && networkResponse.status === 200) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -362,11 +348,59 @@ self.addEventListener("fetch", (event) => {
           }
           return networkResponse;
         })
-        .catch((error) => {
-          // Network request failed and no cache available
-          console.error("Fetch failed:", error);
-          throw error;
-        });
-    })
-  );
+        .catch(() => {
+          // Network failed, try cache as fallback
+          return caches.match(request).then((cachedResponse) => {
+            if (cachedResponse) {
+              console.log("Serving cached HTML (offline):", url.pathname);
+              return cachedResponse;
+            }
+            // No cache available, return offline page or error
+            throw new Error("Network failed and no cache available");
+          });
+        })
+    );
+  } else {
+    // Cache-first for static assets - fast loading
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          // Return cached response and update cache in background
+          event.waitUntil(
+            fetch(request)
+              .then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200) {
+                  caches.open(CACHE_NAME).then((cache) => {
+                    cache.put(request, networkResponse.clone());
+                  });
+                }
+                return networkResponse;
+              })
+              .catch(() => {
+                // Network failed, but we already returned cached version
+              })
+          );
+          return cachedResponse;
+        }
+
+        // Not in cache, fetch from network
+        return fetch(request)
+          .then((networkResponse) => {
+            // Cache successful responses for GET requests
+            if (networkResponse && networkResponse.status === 200) {
+              const responseToCache = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(request, responseToCache);
+              });
+            }
+            return networkResponse;
+          })
+          .catch((error) => {
+            // Network request failed and no cache available
+            console.error("Fetch failed:", error);
+            throw error;
+          });
+      })
+    );
+  }
 });
