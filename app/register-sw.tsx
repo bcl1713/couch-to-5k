@@ -5,8 +5,10 @@ import { useEffect } from "react";
 export function ServiceWorkerRegistration() {
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      let onlineHandler: (() => void) | null = null;
+
       // Register service worker after page load for better performance
-      window.addEventListener("load", () => {
+      const handleLoad = () => {
         navigator.serviceWorker
           .register("/sw.js")
           .then((registration) => {
@@ -15,21 +17,30 @@ export function ServiceWorkerRegistration() {
               registration.scope
             );
 
-            // Check for updates periodically
-            registration.update();
-
             // Process offline queue when coming back online
-            window.addEventListener("online", () => {
+            onlineHandler = () => {
               console.log("Back online, processing queued requests...");
               if (registration.active) {
                 registration.active.postMessage("PROCESS_OFFLINE_QUEUE");
               }
-            });
+            };
+
+            window.addEventListener("online", onlineHandler);
           })
           .catch((error) => {
             console.error("Service Worker registration failed:", error);
           });
-      });
+      };
+
+      window.addEventListener("load", handleLoad);
+
+      // Cleanup function to remove event listeners
+      return () => {
+        window.removeEventListener("load", handleLoad);
+        if (onlineHandler) {
+          window.removeEventListener("online", onlineHandler);
+        }
+      };
     }
   }, []);
 
