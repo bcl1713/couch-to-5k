@@ -60,7 +60,14 @@ export function ServiceWorkerRegistration() {
         });
     };
 
-    window.addEventListener("load", handleLoad);
+    // Check if the load event has already fired
+    if (document.readyState === "complete") {
+      // Page is already loaded, register immediately
+      handleLoad();
+    } else {
+      // Page is still loading, wait for load event
+      window.addEventListener("load", handleLoad);
+    }
 
     // Cleanup function to remove event listeners
     return () => {
