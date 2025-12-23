@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { apiPost, apiGet, formatApiError } from "@/lib/api-client";
+import {
+  apiPost,
+  apiGet,
+  formatApiError,
+  type ApiError,
+} from "@/lib/api-client";
 import { calculateNextWorkout } from "@/lib/progress-utils";
 
 interface WorkoutInterval {
@@ -121,6 +126,27 @@ export function useWorkoutCompletion(
     const previousProgress = progress;
     const previousHistory = history;
 
+    // Helper function to rollback state
+    const performRollback = () => {
+      onProgressUpdate(previousProgress);
+      onHistoryUpdate(previousHistory);
+    };
+
+    // Helper function to get error message based on scenario
+    const getRollbackErrorMessage = (
+      scenario: "api-error" | "fetch-failed" | "network-error",
+      apiError?: ApiError
+    ): string => {
+      switch (scenario) {
+        case "api-error":
+          return formatApiError(apiError);
+        case "fetch-failed":
+          return "Failed to update progress. Please try again.";
+        case "network-error":
+          return "Unable to connect. Please check your internet connection.";
+      }
+    };
+
     try {
       // Calculate next workout optimistically
       const { nextWeek, nextWorkout } = calculateNextWorkout(
@@ -161,26 +187,19 @@ export function useWorkoutCompletion(
           onSuccess?.();
         } else {
           // If progress fetch fails, rollback
-          onProgressUpdate(previousProgress);
-          onHistoryUpdate(previousHistory);
-          setError("Failed to update progress. Please try again.");
+          performRollback();
+          setError(getRollbackErrorMessage("fetch-failed"));
         }
       } else {
         // Rollback on error
-        onProgressUpdate(previousProgress);
-        onHistoryUpdate(previousHistory);
-
-        // Handle error response (including offline 503)
-        const errorMessage = formatApiError(response.error);
-        setError(errorMessage);
+        performRollback();
+        setError(getRollbackErrorMessage("api-error", response.error));
       }
     } catch (err) {
       // Rollback on network error
-      onProgressUpdate(previousProgress);
-      onHistoryUpdate(previousHistory);
-
+      performRollback();
       console.error("Error marking complete:", err);
-      setError("Unable to connect. Please check your internet connection.");
+      setError(getRollbackErrorMessage("network-error"));
     } finally {
       setIsLoading(false);
     }
