@@ -95,8 +95,53 @@ export default function DashboardPage() {
   };
 
   const handleMarkComplete = async () => {
+    if (!progress?.nextWorkout) return;
+
     setMarkingComplete(true);
     setMarkCompleteError(null);
+
+    // Store snapshots for rollback
+    const previousProgress = progress;
+    const previousHistory = history;
+
+    // Calculate next workout optimistically
+    const currentWeek = progress.currentWeek;
+    const currentWorkout = progress.currentWorkout;
+    let nextWeek = currentWeek;
+    let nextWorkout = currentWorkout + 1;
+
+    // Handle week transitions and program completion
+    if (currentWorkout === 3) {
+      if (currentWeek < 9) {
+        nextWeek = currentWeek + 1;
+        nextWorkout = 1;
+      } else {
+        // Stay at week 9, workout 3 (program complete)
+        nextWeek = 9;
+        nextWorkout = 3;
+      }
+    }
+
+    // Create optimistic history item
+    const newHistoryItem: HistoryItem = {
+      id: Date.now(), // Temporary ID
+      week: currentWeek,
+      workoutNumber: currentWorkout,
+      completedAt: Math.floor(Date.now() / 1000),
+      type: "manual_completion",
+    };
+
+    // Optimistically update state
+    setHistory([newHistoryItem, ...previousHistory]);
+    setProgress({
+      ...previousProgress,
+      currentWeek: nextWeek,
+      currentWorkout: nextWorkout,
+      lastCompletedAt: newHistoryItem.completedAt,
+      // Set nextWorkout to null temporarily - will be updated from API
+      nextWorkout: null,
+    });
+
     try {
       const res = await fetch("/api/workouts/mark-complete", {
         method: "POST",
@@ -105,8 +150,25 @@ export default function DashboardPage() {
       });
 
       if (res.ok) {
-        window.location.reload();
+        // Fetch updated progress to get the full nextWorkout data
+        const progressRes = await fetch("/api/user/progress");
+
+        if (progressRes.ok) {
+          const progressData = await progressRes.json();
+          setProgress(progressData);
+          setShowMarkCompleteDialog(false);
+          setMarkCompleteError(null);
+        } else {
+          // If progress fetch fails, rollback
+          setProgress(previousProgress);
+          setHistory(previousHistory);
+          setMarkCompleteError("Failed to update progress. Please try again.");
+        }
       } else {
+        // Rollback on error
+        setProgress(previousProgress);
+        setHistory(previousHistory);
+
         // Handle error response (including offline 503)
         const errorData = await res.json().catch(() => ({}));
         const errorMessage = errorData.error || `Server error (${res.status})`;
@@ -121,6 +183,10 @@ export default function DashboardPage() {
         }
       }
     } catch (error) {
+      // Rollback on network error
+      setProgress(previousProgress);
+      setHistory(previousHistory);
+
       console.error("Error marking complete:", error);
       setMarkCompleteError(
         "Unable to connect. Please check your internet connection."
