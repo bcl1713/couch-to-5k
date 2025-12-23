@@ -1,7 +1,7 @@
 // Couch to 5K Service Worker
 // Cache-first strategy for offline-first experience
 
-const CACHE_VERSION = "c25k-v5";
+const CACHE_VERSION = "c25k-v6";
 const CACHE_NAME = `couch-to-5k-${CACHE_VERSION}`;
 const OFFLINE_QUEUE_NAME = "offline-requests-queue";
 
@@ -26,7 +26,7 @@ self.addEventListener("install", (event) => {
         });
       })
       .then(() => {
-        console.log("Service Worker v5 installed");
+        console.log("Service Worker v6 installed");
       })
   );
   // Force waiting service worker to become active
@@ -35,7 +35,7 @@ self.addEventListener("install", (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener("activate", (event) => {
-  console.log("Service Worker v5 activating...");
+  console.log("Service Worker v6 activating...");
   event.waitUntil(
     caches
       .keys()
@@ -52,7 +52,7 @@ self.addEventListener("activate", (event) => {
         );
       })
       .then(() => {
-        console.log("Service Worker v5 activated and ready");
+        console.log("Service Worker v6 activated and ready");
       })
   );
   // Take control of all pages immediately
@@ -259,6 +259,30 @@ self.addEventListener("message", (event) => {
   }
 });
 
+// Helper: Determine if a request should be queued for offline sync
+function shouldQueueRequest(pathname, method) {
+  // Don't queue GET requests - they don't modify data
+  if (method === "GET") {
+    return false;
+  }
+
+  // Don't queue authentication requests - these should fail immediately when offline
+  // User needs to be online to authenticate, and we don't want to queue credentials
+  if (pathname.startsWith("/api/auth/")) {
+    return false;
+  }
+
+  // Queue all other mutation requests (POST, PUT, PATCH, DELETE)
+  // This includes:
+  // - /api/workouts/mark-complete
+  // - /api/workouts/start
+  // - /api/user/progress/repeat-week
+  // - /api/user/progress/go-back-week
+  // - /api/user/progress/jump-to
+  // - Any future mutation endpoints
+  return true;
+}
+
 // Fetch event - cache-first strategy
 self.addEventListener("fetch", (event) => {
   const { request } = event;
@@ -272,13 +296,11 @@ self.addEventListener("fetch", (event) => {
         // Log for debugging
         console.log("API request failed (offline):", url.pathname);
 
-        // For completion endpoints, queue them for later
+        // Determine if this request should be queued for later
         let queued = false;
-        if (
-          request.method !== "GET" &&
-          (url.pathname.includes("/complete") ||
-            url.pathname.includes("/mark-complete"))
-        ) {
+        const shouldQueue = shouldQueueRequest(url.pathname, request.method);
+
+        if (shouldQueue) {
           try {
             await queueOfflineRequest(request.clone());
             queued = true;
