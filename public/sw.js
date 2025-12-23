@@ -40,16 +40,42 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((cacheNames) => {
-        return Promise.all(
-          cacheNames
-            .filter(
-              (name) => name.startsWith("couch-to-5k-") && name !== CACHE_NAME
-            )
-            .map((name) => {
-              console.log("Deleting old cache:", name);
-              return caches.delete(name);
-            })
+        const oldCaches = cacheNames.filter(
+          (name) => name.startsWith("couch-to-5k-") && name !== CACHE_NAME
         );
+
+        // Track cleanup results
+        let successCount = 0;
+        let failureCount = 0;
+
+        // Delete each cache individually with error handling
+        return Promise.all(
+          oldCaches.map((name) => {
+            console.log("Deleting old cache:", name);
+            return caches
+              .delete(name)
+              .then((deleted) => {
+                if (deleted) {
+                  successCount++;
+                  console.log("Successfully deleted cache:", name);
+                } else {
+                  failureCount++;
+                  console.warn("Cache deletion returned false for:", name);
+                }
+              })
+              .catch((error) => {
+                failureCount++;
+                console.error(`Failed to delete cache "${name}":`, error);
+              });
+          })
+        ).then(() => {
+          // Log cleanup summary
+          if (oldCaches.length > 0) {
+            console.log(
+              `Cache cleanup complete: ${successCount} deleted, ${failureCount} failed`
+            );
+          }
+        });
       })
       .then(() => {
         console.log("Service Worker v7 activated and ready");
