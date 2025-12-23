@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiPost, apiGet } from "@/lib/api-client";
 
 interface Progress {
   currentWeek: number;
@@ -35,8 +36,8 @@ export default function ProgressSettingsPage() {
   const fetchData = useCallback(async () => {
     try {
       const [progressRes, logRes] = await Promise.all([
-        fetch("/api/user/progress"),
-        fetch("/api/user/progress-log"),
+        apiGet<Progress>("/api/user/progress"),
+        apiGet<{ adjustments: Adjustment[] }>("/api/user/progress-log"),
       ]);
 
       if (!progressRes.ok) {
@@ -44,14 +45,16 @@ export default function ProgressSettingsPage() {
         return;
       }
 
-      const progressData = await progressRes.json();
-      const logData = await logRes.json();
+      if (progressRes.data) {
+        setProgress({
+          currentWeek: progressRes.data.currentWeek,
+          currentWorkout: progressRes.data.currentWorkout,
+        });
+      }
 
-      setProgress({
-        currentWeek: progressData.currentWeek,
-        currentWorkout: progressData.currentWorkout,
-      });
-      setAdjustments(logData.adjustments || []);
+      if (logRes.data) {
+        setAdjustments(logRes.data.adjustments || []);
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -66,9 +69,7 @@ export default function ProgressSettingsPage() {
   const handleRepeatWeek = async () => {
     setProcessing(true);
     try {
-      const res = await fetch("/api/user/progress/repeat-week", {
-        method: "POST",
-      });
+      const res = await apiPost("/api/user/progress/repeat-week");
       if (res.ok) {
         await fetchData();
       }
@@ -83,9 +84,7 @@ export default function ProgressSettingsPage() {
   const handleGoBackWeek = async () => {
     setProcessing(true);
     try {
-      const res = await fetch("/api/user/progress/go-back-week", {
-        method: "POST",
-      });
+      const res = await apiPost("/api/user/progress/go-back-week");
       if (res.ok) {
         await fetchData();
       }
@@ -100,10 +99,9 @@ export default function ProgressSettingsPage() {
   const handleJumpTo = async () => {
     setProcessing(true);
     try {
-      const res = await fetch("/api/user/progress/jump-to", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ week: jumpWeek, workout_number: jumpWorkout }),
+      const res = await apiPost("/api/user/progress/jump-to", {
+        week: jumpWeek,
+        workout_number: jumpWorkout,
       });
       if (res.ok) {
         await fetchData();

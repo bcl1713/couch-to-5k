@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getIntervalSummary } from "@/lib/workout-utils";
+import { Alert } from "@/components/Alert";
+import { useWorkoutCompletion } from "@/hooks/useWorkoutCompletion";
 
 interface WorkoutInterval {
   type: "walk" | "jog";
@@ -49,7 +51,21 @@ export default function DashboardPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showMarkCompleteDialog, setShowMarkCompleteDialog] = useState(false);
-  const [markingComplete, setMarkingComplete] = useState(false);
+
+  const {
+    markComplete,
+    isLoading: markingComplete,
+    error: markCompleteError,
+    clearError: clearMarkCompleteError,
+  } = useWorkoutCompletion({
+    progress,
+    history,
+    onProgressUpdate: setProgress,
+    onHistoryUpdate: setHistory,
+    onSuccess: () => {
+      setShowMarkCompleteDialog(false);
+    },
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -89,26 +105,6 @@ export default function DashboardPage() {
 
   const handleStartWorkout = async () => {
     router.push("/workout/active");
-  };
-
-  const handleMarkComplete = async () => {
-    setMarkingComplete(true);
-    try {
-      const res = await fetch("/api/workouts/mark-complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-
-      if (res.ok) {
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error("Error marking complete:", error);
-    } finally {
-      setMarkingComplete(false);
-      setShowMarkCompleteDialog(false);
-    }
   };
 
   const formatDuration = (seconds: number) => {
@@ -189,7 +185,10 @@ export default function DashboardPage() {
               Start Workout
             </button>
             <button
-              onClick={() => setShowMarkCompleteDialog(true)}
+              onClick={() => {
+                setShowMarkCompleteDialog(true);
+                clearMarkCompleteError();
+              }}
               className="flex-1 bg-gray-200 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-300 transition min-h-[44px]"
             >
               Mark Complete
@@ -244,16 +243,22 @@ export default function DashboardPage() {
               Are you sure you want to mark Week {progress?.currentWeek},
               Workout {progress?.currentWorkout} as complete?
             </p>
+            {markCompleteError && (
+              <Alert variant="warning">{markCompleteError}</Alert>
+            )}
             <div className="flex gap-3">
               <button
-                onClick={() => setShowMarkCompleteDialog(false)}
+                onClick={() => {
+                  setShowMarkCompleteDialog(false);
+                  clearMarkCompleteError();
+                }}
                 className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded hover:bg-gray-300 min-h-[44px]"
                 disabled={markingComplete}
               >
                 Cancel
               </button>
               <button
-                onClick={handleMarkComplete}
+                onClick={markComplete}
                 className="flex-1 bg-indigo-600 text-white py-3 px-4 rounded hover:bg-indigo-700 disabled:opacity-50 min-h-[44px]"
                 disabled={markingComplete}
               >

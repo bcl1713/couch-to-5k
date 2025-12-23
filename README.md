@@ -12,6 +12,142 @@ visual timers.
 - Full 9-week Couch to 5K progression tracking
 - Mobile-first responsive interface
 - Self-contained Docker image for easy deployment
+- Progressive Web App (PWA) support for native app-like experience
+
+## Installing as a PWA
+
+The Couch to 5K app can be installed directly from your browser for a
+native app-like experience on mobile and desktop devices.
+
+### Benefits of Installing
+
+- **Home Screen Access**: Launch directly from your device home screen
+  alongside native apps
+- **Standalone Mode**: Full-screen experience without browser UI
+- **Offline Support**: Access the app and complete workouts even without
+  internet connection
+- **App-Like Behavior**: Custom splash screen, icon, and seamless
+  navigation
+- **Better Performance**: Cached resources load instantly
+
+### Installation Instructions
+
+#### Chrome/Edge (Android & Desktop)
+
+1. Open the app in Chrome or Edge browser
+2. Look for the install icon in the address bar (monitor/phone icon with
+   down arrow)
+3. Click "Install" when prompted
+4. The app will be added to your home screen/app drawer
+
+Alternatively:
+
+- Tap the three-dot menu (⋮) → "Install app" or "Add to Home Screen"
+
+#### Safari (iOS/iPadOS)
+
+1. Open the app in Safari
+2. Tap the Share button (square with arrow pointing up)
+3. Scroll down and tap "Add to Home Screen"
+4. Name the app and tap "Add"
+5. The app icon will appear on your home screen
+
+**Note**: iOS has limited PWA support compared to Android. Service worker
+features like background sync work with limitations.
+
+#### Safari (macOS)
+
+1. Open the app in Safari
+2. Click File → "Add to Dock"
+3. The app will be available as a standalone application
+
+### Offline Functionality
+
+The app includes smart offline support:
+
+**Works Offline:**
+
+- UI navigation and all pages
+- Viewing cached workout history
+- Completing active workouts (synced when back online)
+- Marking workouts complete (synced when back online)
+
+**Requires Connection:**
+
+- Starting new workouts (requires fresh workout data)
+- User authentication (login/signup)
+- Fetching latest progress updates
+
+API requests made offline are automatically queued and synced when you
+reconnect.
+
+### Browser Support
+
+**Full PWA Support:**
+
+- Chrome 67+ (Android, Desktop, ChromeOS)
+- Edge 79+ (Windows, Android)
+- Samsung Internet 8.2+
+
+**Partial PWA Support:**
+
+- Safari 11.1+ (iOS, iPadOS, macOS) - limited service worker features
+- Firefox 79+ - no install prompt on mobile
+
+**Graceful Fallback:**
+
+- All browsers can use the web version normally
+- PWA features enhance but don't replace core functionality
+
+### Troubleshooting
+
+**Install button doesn't appear (Chrome/Edge):**
+
+- Ensure you're using HTTPS (required for PWA installation)
+- Try refreshing the page
+- Check that the app isn't already installed
+- Verify your browser version meets minimum requirements (Chrome 67+,
+  Edge 79+)
+
+**App won't work offline:**
+
+- Allow the app to fully load at least once while online
+- Check that service worker registered successfully (DevTools →
+  Application → Service Workers)
+- Verify browser supports service workers (all modern browsers except
+  older iOS versions)
+
+**Install prompt disappeared:**
+
+- Clear browser cache and revisit the site
+- Manually install via browser menu: Menu (⋮) → "Install app"
+
+**iOS Safari specific issues:**
+
+- Ensure you're using "Add to Home Screen" from the Share menu
+- Some PWA features (like background sync) have limited support on iOS
+- App must be opened from Safari, not from another browser
+
+**App not updating to latest version:**
+
+- Uninstall and reinstall the app
+- Or clear site data: Settings → Privacy → Clear Browsing Data → Cached
+  images and files
+
+**Queued offline actions not syncing:**
+
+- Check your internet connection is restored
+- Reopen the app to trigger sync
+- Check browser console for sync errors (DevTools → Console)
+
+**HTTPS requirement:**
+
+- PWAs require HTTPS in production (localhost works for development)
+- If self-hosting, ensure your reverse proxy or server has TLS/SSL
+  configured
+
+For development issues, check the browser console (F12) for service
+worker errors.
 
 ## Quick Start
 
