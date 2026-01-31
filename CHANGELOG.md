@@ -1,3 +1,9 @@
+# [1.3.0](https://github.com/bcl1713/couch-to-5k/compare/v1.2.0...v1.3.0) (2026-01-31)
+
+### Features
+
+- add screen wake lock to keep screen awake during workouts ([d0e6cb4](https://github.com/bcl1713/couch-to-5k/commit/d0e6cb4beb11c720d0ada6438318635ab703c8b0))
+
 # [1.2.0](https://github.com/bcl1713/couch-to-5k/compare/v1.1.1...v1.2.0) (2025-12-23)
 
 ### Bug Fixes

@@ -1,6 +1,6 @@
 {
   "name": "couch-to-5k",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Couch to 5K running program guidance app with real-time coaching",
   "private": true,
   "scripts": {
