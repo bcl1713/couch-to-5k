@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/api-client";
+import { useWakeLock } from "@/hooks/useWakeLock";
 
 interface WorkoutInterval {
   type: "walk" | "jog";
@@ -167,6 +168,11 @@ export default function WorkoutActivePage() {
       intervalElapsed: intervalElapsedValue - accumulated,
     };
   }, [elapsedSeconds, flatIntervals, session]);
+
+  // Keep screen awake during active (non-paused) workout
+  useWakeLock({
+    enabled: session !== null && !isPaused && phase !== "complete",
+  });
 
   // Trigger audio cues on phase or interval transitions
   useEffect(() => {
