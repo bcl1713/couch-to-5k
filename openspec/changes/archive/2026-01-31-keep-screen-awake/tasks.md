@@ -23,5 +23,5 @@
 - [x] 3.1 Write unit tests for `useWakeLock` hook with mocked Wake Lock API
 - [x] 3.2 Test graceful degradation when Wake Lock API is unavailable
 - [x] 3.3 Test visibility change re-acquisition behavior
-- [ ] 3.4 Manual test on mobile device to verify screen stays awake during
+- [x] 3.4 Manual test on mobile device to verify screen stays awake during
       workout
