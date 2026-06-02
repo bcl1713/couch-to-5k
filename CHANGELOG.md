@@ -1,3 +1,9 @@
+## [1.3.1](https://github.com/bcl1713/couch-to-5k/compare/v1.3.0...v1.3.1) (2026-06-02)
+
+### Bug Fixes
+
+- keep workout timer accurate after PWA backgrounding ([#8](https://github.com/bcl1713/couch-to-5k/issues/8)) ([3793ac3](https://github.com/bcl1713/couch-to-5k/commit/3793ac3994a0ce85171a7be02f6a5491ab0b9b96)), closes [#7](https://github.com/bcl1713/couch-to-5k/issues/7)
+
 # [1.3.0](https://github.com/bcl1713/couch-to-5k/compare/v1.2.0...v1.3.0) (2026-01-31)
 
 ### Features
