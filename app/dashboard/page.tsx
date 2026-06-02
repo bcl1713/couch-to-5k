@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getIntervalSummary } from "@/lib/workout-utils";
 import { Alert } from "@/components/Alert";
 import { useWorkoutCompletion } from "@/hooks/useWorkoutCompletion";
+import { logger } from "@/lib/logger";
 
 interface WorkoutInterval {
   type: "walk" | "jog";
@@ -89,7 +90,7 @@ export default function DashboardPage() {
         setProgress(progressData);
         setHistory(historyData.history || []);
       } catch (error) {
-        console.error("Error fetching data:", error);
+        logger.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }

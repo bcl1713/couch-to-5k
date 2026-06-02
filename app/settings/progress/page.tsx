@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiPost, apiGet } from "@/lib/api-client";
+import { logger } from "@/lib/logger";
 
 interface Progress {
   currentWeek: number;
@@ -56,7 +57,7 @@ export default function ProgressSettingsPage() {
         setAdjustments(logRes.data.adjustments || []);
       }
     } catch (error) {
-      console.error("Error fetching data:", error);
+      logger.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
@@ -74,7 +75,7 @@ export default function ProgressSettingsPage() {
         await fetchData();
       }
     } catch (error) {
-      console.error("Error repeating week:", error);
+      logger.error("Error repeating week:", error);
     } finally {
       setProcessing(false);
       setShowConfirmDialog(null);
@@ -89,7 +90,7 @@ export default function ProgressSettingsPage() {
         await fetchData();
       }
     } catch (error) {
-      console.error("Error going back week:", error);
+      logger.error("Error going back week:", error);
     } finally {
       setProcessing(false);
       setShowConfirmDialog(null);
@@ -108,7 +109,7 @@ export default function ProgressSettingsPage() {
         setShowJumpDialog(false);
       }
     } catch (error) {
-      console.error("Error jumping to week:", error);
+      logger.error("Error jumping to week:", error);
     } finally {
       setProcessing(false);
     }

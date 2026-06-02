@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { logger } from "@/lib/logger";
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
@@ -16,14 +17,14 @@ export function ServiceWorkerRegistration() {
       navigator.serviceWorker
         .register("/sw.js")
         .then((registration) => {
-          console.log(
+          logger.info(
             "Service Worker registered with scope:",
             registration.scope
           );
 
           // Process offline queue when coming back online
           onlineHandler = () => {
-            console.log("Back online, processing queued requests...");
+            logger.info("Back online, processing queued requests...");
             if (registration.active) {
               registration.active.postMessage("PROCESS_OFFLINE_QUEUE");
             }
@@ -34,17 +35,17 @@ export function ServiceWorkerRegistration() {
             if (event.data?.type) {
               switch (event.data.type) {
                 case "SYNC_SUCCESS":
-                  console.log("Successfully synced:", event.data.url);
+                  logger.info("Successfully synced:", event.data.url);
                   break;
                 case "SYNC_FAILED":
-                  console.warn(
+                  logger.warn(
                     "Failed to sync:",
                     event.data.url,
                     event.data.reason
                   );
                   break;
                 case "QUEUE_SUMMARY":
-                  console.log(
+                  logger.info(
                     `Sync complete: ${event.data.synced} succeeded, ${event.data.failed} failed, ${event.data.expired} expired`
                   );
                   break;
@@ -56,7 +57,7 @@ export function ServiceWorkerRegistration() {
           navigator.serviceWorker.addEventListener("message", messageHandler);
         })
         .catch((error) => {
-          console.error("Service Worker registration failed:", error);
+          logger.error("Service Worker registration failed:", error);
         });
     };
 

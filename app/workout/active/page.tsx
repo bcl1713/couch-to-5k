@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/api-client";
 import { useWakeLock } from "@/hooks/useWakeLock";
+import { logger } from "@/lib/logger";
 
 interface WorkoutInterval {
   type: "walk" | "jog";
@@ -88,7 +89,7 @@ export default function WorkoutActivePage() {
           setSession(res.data);
         }
       } catch (error) {
-        console.error("Error starting workout:", error);
+        logger.error("Error starting workout:", error);
         router.push("/dashboard");
       }
     };
@@ -119,7 +120,7 @@ export default function WorkoutActivePage() {
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.5);
 
-    console.log("Audio cue (beep):", message);
+    logger.info("Audio cue (beep):", message);
   }, []);
 
   const { phase, currentIntervalIndex, intervalElapsed } = useMemo(() => {
@@ -270,7 +271,7 @@ export default function WorkoutActivePage() {
     try {
       await apiPost(`/api/workouts/${session.sessionId}/pause`);
     } catch (error) {
-      console.error("Error pausing workout:", error);
+      logger.error("Error pausing workout:", error);
     }
   };
 
@@ -285,7 +286,7 @@ export default function WorkoutActivePage() {
     try {
       await apiPost(`/api/workouts/${session.sessionId}/resume`);
     } catch (error) {
-      console.error("Error resuming workout:", error);
+      logger.error("Error resuming workout:", error);
     }
   };
 
@@ -295,7 +296,7 @@ export default function WorkoutActivePage() {
       await apiPost(`/api/workouts/${session.sessionId}/complete`);
       router.push("/workout/complete");
     } catch (error) {
-      console.error("Error completing workout:", error);
+      logger.error("Error completing workout:", error);
     }
   }, [router, session]);
 
@@ -305,7 +306,7 @@ export default function WorkoutActivePage() {
       await apiPost(`/api/workouts/${session.sessionId}/quit`);
       router.push("/dashboard");
     } catch (error) {
-      console.error("Error quitting workout:", error);
+      logger.error("Error quitting workout:", error);
     }
   };
 

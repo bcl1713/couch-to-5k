@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { logger } from "@/lib/logger";
 
 interface UseWakeLockOptions {
   enabled: boolean;
@@ -21,7 +22,7 @@ export function useWakeLock({ enabled }: UseWakeLockOptions): void {
     try {
       wakeLockRef.current = await navigator.wakeLock.request("screen");
     } catch (error) {
-      console.error("Wake lock request failed:", error);
+      logger.error("Wake lock request failed:", error);
     }
   }, [isSupported]);
 
@@ -31,7 +32,7 @@ export function useWakeLock({ enabled }: UseWakeLockOptions): void {
         await wakeLockRef.current.release();
         wakeLockRef.current = null;
       } catch (error) {
-        console.error("Wake lock release failed:", error);
+        logger.error("Wake lock release failed:", error);
       }
     }
   }, []);

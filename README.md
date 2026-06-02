@@ -241,7 +241,9 @@ The app initializes and seeds the database automatically on startup.
 Bundled app and API code should use `logger` from `@/lib/logger` rather than
 calling `console` directly. Pass normal arguments, including `Error` objects;
 the logger forwards them without stringifying away stack traces or metadata.
-Service worker logging is handled separately.
+Service worker logging is handled separately: `public/sw.js` is served as a
+standalone static worker rather than bundled Next.js code, so it cannot safely
+import `@/lib/logger` in this refactor.
 
 ## Automated Releases
 

@@ -55,13 +55,13 @@ const mockWorkoutSession = {
 
 describe("WorkoutActivePage timer", () => {
   const mockPush = jest.fn();
-  let consoleLogSpy: jest.SpyInstance;
+  let consoleInfoSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.useFakeTimers();
     nowMs = 1_000_000;
     jest.spyOn(Date, "now").mockImplementation(() => nowMs);
-    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    consoleInfoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
 
     mockUseRouter.mockReturnValue({
       push: mockPush,
@@ -116,7 +116,7 @@ describe("WorkoutActivePage timer", () => {
   });
 
   afterEach(() => {
-    consoleLogSpy.mockRestore();
+    consoleInfoSpy.mockRestore();
     jest.restoreAllMocks();
     jest.useRealTimers();
   });
@@ -171,17 +171,17 @@ describe("WorkoutActivePage timer", () => {
 
   it("does not replay every missed transition cue after a throttled background tick", async () => {
     await renderStartedWorkout();
-    consoleLogSpy.mockClear();
+    consoleInfoSpy.mockClear();
 
     await advanceWallClockAndRunOneTick(11_000);
 
-    const audioCueMessages = consoleLogSpy.mock.calls
+    const audioCueMessages = consoleInfoSpy.mock.calls
       .map((call) => String(call[0]))
       .filter((message) => message.startsWith("Audio cue"));
 
     expect(screen.getByText("Jogging")).toBeInTheDocument();
     expect(audioCueMessages).toHaveLength(1);
-    expect(consoleLogSpy).not.toHaveBeenCalledWith(
+    expect(consoleInfoSpy).not.toHaveBeenCalledWith(
       "Audio cue (beep):",
       "Start walking"
     );
