@@ -6,6 +6,7 @@ import {
   type ApiError,
 } from "@/lib/api-client";
 import { calculateNextWorkout } from "@/lib/progress-utils";
+import { logger } from "@/lib/logger";
 
 interface WorkoutInterval {
   type: "walk" | "jog";
@@ -198,7 +199,7 @@ export function useWorkoutCompletion(
     } catch (err) {
       // Rollback on network error
       performRollback();
-      console.error("Error marking complete:", err);
+      logger.error("Error marking complete:", err);
       setError(getRollbackErrorMessage("network-error"));
     } finally {
       setIsLoading(false);

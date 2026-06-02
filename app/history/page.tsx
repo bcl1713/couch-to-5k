@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { logger } from "@/lib/logger";
 
 interface HistoryItem {
   id: number;
@@ -47,7 +48,7 @@ export default function HistoryPage() {
           currentWorkout: progressData.currentWorkout,
         });
       } catch (error) {
-        console.error("Error fetching data:", error);
+        logger.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
