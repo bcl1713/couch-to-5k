@@ -243,7 +243,12 @@ calling `console` directly. Pass normal arguments, including `Error` objects;
 the logger forwards them without stringifying away stack traces or metadata.
 Service worker logging is handled separately: `public/sw.js` is served as a
 standalone static worker rather than bundled Next.js code, so it cannot safely
-import `@/lib/logger` in this refactor.
+import `@/lib/logger` in this refactor. It uses a tiny local logger that defaults
+to `warn` to keep production worker logs quiet while preserving warnings/errors.
+For a manual PWA smoke test, use browser DevTools → Application → Service
+Workers to update/reload `/sw.js`, then verify install/activate/fetch/offline
+cache behavior and temporarily lower `SERVICE_WORKER_LOG_LEVEL` in `public/sw.js`
+if lifecycle detail is needed.
 
 ## Automated Releases
 

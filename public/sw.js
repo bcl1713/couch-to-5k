@@ -5,6 +5,43 @@ const CACHE_VERSION = "c25k-v8";
 const CACHE_NAME = `couch-to-5k-${CACHE_VERSION}`;
 const OFFLINE_QUEUE_NAME = "offline-requests-queue";
 
+// public/sw.js is served as a standalone public script, not bundled Next.js
+// code, so it must not import @/lib/logger. Keep service worker logging local
+// and quiet by default while preserving warning/error visibility for PWA
+// troubleshooting. Temporarily set this to "debug" or "info" during manual
+// DevTools service-worker smoke testing if lifecycle detail is needed.
+const SERVICE_WORKER_LOG_LEVEL = "warn";
+const SERVICE_WORKER_LOG_LEVELS = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+  silent: 4,
+};
+
+function shouldLogServiceWorkerMessage(level) {
+  return (
+    SERVICE_WORKER_LOG_LEVELS[level] >=
+    SERVICE_WORKER_LOG_LEVELS[SERVICE_WORKER_LOG_LEVEL]
+  );
+}
+
+function logServiceWorkerMessage(level, ...args) {
+  if (!shouldLogServiceWorkerMessage(level)) {
+    return;
+  }
+
+  const method = console[level] || console.log;
+  method("[ServiceWorker]", ...args);
+}
+
+const serviceWorkerLogger = {
+  debug: (...args) => logServiceWorkerMessage("debug", ...args),
+  info: (...args) => logServiceWorkerMessage("info", ...args),
+  warn: (...args) => logServiceWorkerMessage("warn", ...args),
+  error: (...args) => logServiceWorkerMessage("error", ...args),
+};
+
 // Assets to cache on install
 const STATIC_ASSETS = [
   "/",
@@ -22,11 +59,14 @@ self.addEventListener("install", (event) => {
       .then((cache) => {
         return cache.addAll(STATIC_ASSETS).catch((error) => {
           // Don't fail installation if we can't cache assets (e.g., when offline)
-          console.log("Failed to cache some assets during install:", error);
+          serviceWorkerLogger.warn(
+            "Failed to cache some assets during install:",
+            error
+          );
         });
       })
       .then(() => {
-        console.log("Service Worker v8 installed");
+        serviceWorkerLogger.info("Service Worker v8 installed");
       })
   );
   // Force waiting service worker to become active
@@ -35,7 +75,7 @@ self.addEventListener("install", (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener("activate", (event) => {
-  console.log("Service Worker v8 activating...");
+  serviceWorkerLogger.info("Service Worker v8 activating...");
   event.waitUntil(
     caches
       .keys()
@@ -51,34 +91,40 @@ self.addEventListener("activate", (event) => {
         // Delete each cache individually with error handling
         return Promise.all(
           oldCaches.map((name) => {
-            console.log("Deleting old cache:", name);
+            serviceWorkerLogger.info("Deleting old cache:", name);
             return caches
               .delete(name)
               .then((deleted) => {
                 if (deleted) {
                   successCount++;
-                  console.log("Successfully deleted cache:", name);
+                  serviceWorkerLogger.info("Successfully deleted cache:", name);
                 } else {
                   failureCount++;
-                  console.warn("Cache deletion returned false for:", name);
+                  serviceWorkerLogger.warn(
+                    "Cache deletion returned false for:",
+                    name
+                  );
                 }
               })
               .catch((error) => {
                 failureCount++;
-                console.error(`Failed to delete cache "${name}":`, error);
+                serviceWorkerLogger.error(
+                  `Failed to delete cache "${name}":`,
+                  error
+                );
               });
           })
         ).then(() => {
           // Log cleanup summary
           if (oldCaches.length > 0) {
-            console.log(
+            serviceWorkerLogger.info(
               `Cache cleanup complete: ${successCount} deleted, ${failureCount} failed`
             );
           }
         });
       })
       .then(() => {
-        console.log("Service Worker v8 activated and ready");
+        serviceWorkerLogger.info("Service Worker v8 activated and ready");
         // Take control of all pages after cleanup completes
         return self.clients.claim();
       })
@@ -189,7 +235,7 @@ async function handleSuccessfulSync(db, reqData) {
     type: "SYNC_SUCCESS",
     url: reqData.url,
   });
-  console.log("Successfully synced request:", reqData.url);
+  serviceWorkerLogger.info("Successfully synced request:", reqData.url);
   return { success: true };
 }
 
@@ -201,14 +247,17 @@ async function handleClientError(db, reqData, response) {
     url: reqData.url,
     reason: `Client error: ${response.status}`,
   });
-  console.log(`Request failed permanently (${response.status}):`, reqData.url);
+  serviceWorkerLogger.warn(
+    `Request failed permanently (${response.status}):`,
+    reqData.url
+  );
   return { failed: true };
 }
 
 // Helper: Handle server error (5xx)
 async function handleServerError(db, reqData, response) {
   await incrementRetryCount(db, reqData.id);
-  console.log(
+  serviceWorkerLogger.warn(
     `Server error ${response.status} for ${reqData.url}, will retry later`
   );
   return { retry: true };
@@ -217,7 +266,10 @@ async function handleServerError(db, reqData, response) {
 // Helper: Handle network error
 async function handleNetworkError(db, reqData, error) {
   await incrementRetryCount(db, reqData.id);
-  console.log(`Network error for ${reqData.url}, will retry later:`, error);
+  serviceWorkerLogger.warn(
+    `Network error for ${reqData.url}, will retry later:`,
+    error
+  );
   return { retry: true };
 }
 
@@ -270,7 +322,7 @@ async function processOfflineQueue() {
       request.onerror = () => reject(request.error);
     });
 
-    console.log(`Processing ${requests.length} queued requests`);
+    serviceWorkerLogger.info(`Processing ${requests.length} queued requests`);
     let successCount = 0;
     let failedCount = 0;
     let expiredCount = 0;
@@ -280,7 +332,7 @@ async function processOfflineQueue() {
       if (isRequestExpired(reqData, MAX_AGE)) {
         await deleteRequestFromQueue(db, reqData.id);
         expiredCount++;
-        console.log("Request expired:", reqData.url);
+        serviceWorkerLogger.warn("Request expired:", reqData.url);
         continue;
       }
 
@@ -293,7 +345,10 @@ async function processOfflineQueue() {
           url: reqData.url,
           reason: "Max retries exceeded",
         });
-        console.log("Request failed permanently (max retries):", reqData.url);
+        serviceWorkerLogger.warn(
+          "Request failed permanently (max retries):",
+          reqData.url
+        );
         continue;
       }
 
@@ -308,7 +363,7 @@ async function processOfflineQueue() {
       // If result.retry, we just continue to the next request
     }
 
-    console.log(
+    serviceWorkerLogger.info(
       `Queue processing complete: ${successCount} synced, ${failedCount} failed, ${expiredCount} expired`
     );
 
@@ -321,7 +376,7 @@ async function processOfflineQueue() {
       });
     }
   } catch (error) {
-    console.error("Error processing offline queue:", error);
+    serviceWorkerLogger.error("Error processing offline queue:", error);
   }
 }
 
@@ -375,7 +430,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request.clone()).catch(async () => {
         // Log for debugging
-        console.log("API request failed (offline):", url.pathname);
+        serviceWorkerLogger.info("API request failed (offline):", url.pathname);
 
         // Determine if this request should be queued for later
         let queued = false;
@@ -389,9 +444,9 @@ self.addEventListener("fetch", (event) => {
           try {
             await queueOfflineRequest(request.clone());
             queued = true;
-            console.log("Request queued for sync when online");
+            serviceWorkerLogger.info("Request queued for sync when online");
           } catch (queueError) {
-            console.error("Failed to queue request:", queueError);
+            serviceWorkerLogger.error("Failed to queue request:", queueError);
           }
         }
 
@@ -449,7 +504,10 @@ self.addEventListener("fetch", (event) => {
           // Network failed, try cache as fallback
           return caches.match(request).then((cachedResponse) => {
             if (cachedResponse) {
-              console.log("Serving cached HTML (offline):", url.pathname);
+              serviceWorkerLogger.info(
+                "Serving cached HTML (offline):",
+                url.pathname
+              );
               return cachedResponse;
             }
             // No cache available, return offline page or error
@@ -495,7 +553,7 @@ self.addEventListener("fetch", (event) => {
           })
           .catch((error) => {
             // Network request failed and no cache available
-            console.error("Fetch failed:", error);
+            serviceWorkerLogger.error("Fetch failed:", error);
             throw error;
           });
       })
@@ -504,7 +562,11 @@ self.addEventListener("fetch", (event) => {
     // Default: network-only for other requests (e.g., external resources, data fetches)
     event.respondWith(
       fetch(request).catch((error) => {
-        console.error("Network request failed:", url.pathname, error);
+        serviceWorkerLogger.error(
+          "Network request failed:",
+          url.pathname,
+          error
+        );
         throw error;
       })
     );
