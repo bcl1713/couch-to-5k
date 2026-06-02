@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 export async function POST(
   request: NextRequest,
@@ -42,7 +43,7 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Quit workout error:", error);
+    logger.error("Quit workout error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

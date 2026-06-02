@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3";
+import { logger } from "./logger";
 
 export function runMigrations(db: Database.Database): void {
   // Create migrations table if it doesn't exist
@@ -15,7 +16,7 @@ export function runMigrations(db: Database.Database): void {
   const migrationsDir = path.join(process.cwd(), "db", "migrations");
 
   if (!fs.existsSync(migrationsDir)) {
-    console.warn(`Migrations directory not found: ${migrationsDir}`);
+    logger.warn(`Migrations directory not found: ${migrationsDir}`);
     return;
   }
 
@@ -31,7 +32,7 @@ export function runMigrations(db: Database.Database): void {
 
   for (const file of migrationFiles) {
     if (!appliedNames.has(file)) {
-      console.log(`Applying migration: ${file}`);
+      logger.info(`Applying migration: ${file}`);
       const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
 
       try {
@@ -39,9 +40,9 @@ export function runMigrations(db: Database.Database): void {
           db.exec(sql);
           db.prepare("INSERT INTO _migrations (name) VALUES (?)").run(file);
         })();
-        console.log(`Successfully applied migration: ${file}`);
+        logger.info(`Successfully applied migration: ${file}`);
       } catch (error) {
-        console.error(`Failed to apply migration: ${file}`, error);
+        logger.error(`Failed to apply migration: ${file}`, error);
         throw error; // Stop if a migration fails
       }
     }

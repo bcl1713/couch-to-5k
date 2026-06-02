@@ -1,4 +1,5 @@
 import { getDb } from "./db";
+import { logger } from "./logger";
 
 interface WorkoutInterval {
   type: "walk" | "jog";
@@ -350,7 +351,7 @@ export function seedWorkouts(): void {
   };
 
   if (count.count > 0) {
-    console.log("Workouts already seeded, skipping...");
+    logger.info("Workouts already seeded, skipping...");
     return;
   }
 
@@ -371,5 +372,5 @@ export function seedWorkouts(): void {
   });
 
   insertMany(WORKOUTS);
-  console.log(`Seeded ${WORKOUTS.length} workouts`);
+  logger.info(`Seeded ${WORKOUTS.length} workouts`);
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 export async function POST() {
   try {
@@ -51,7 +52,7 @@ export async function POST() {
       },
     });
   } catch (error) {
-    console.error("Repeat week error:", error);
+    logger.error("Repeat week error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
