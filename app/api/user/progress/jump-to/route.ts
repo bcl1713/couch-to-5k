@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Jump to error:", error);
+    logger.error("Jump to error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

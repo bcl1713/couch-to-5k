@@ -2,6 +2,7 @@ import { initializeDatabase } from "./db";
 import { seedWorkouts } from "./seed-workouts";
 import fs from "fs";
 import path from "path";
+import { logger } from "./logger";
 
 export function ensureDataDirectory() {
   const dataDir = path.join(process.cwd(), "data");
@@ -11,12 +12,12 @@ export function ensureDataDirectory() {
 }
 
 export function initDb() {
-  console.log("Initializing database...");
+  logger.info("Initializing database...");
   ensureDataDirectory();
   initializeDatabase();
-  console.log("Database initialized");
+  logger.info("Database initialized");
 
-  console.log("Seeding workouts...");
+  logger.info("Seeding workouts...");
   seedWorkouts();
-  console.log("Database setup complete");
+  logger.info("Database setup complete");
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   try {
@@ -59,7 +60,7 @@ export async function GET() {
         : null,
     });
   } catch (error) {
-    console.error("Get progress error:", error);
+    logger.error("Get progress error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 export async function POST() {
   try {
@@ -69,7 +70,7 @@ export async function POST() {
       startedAt: now,
     });
   } catch (error) {
-    console.error("Start workout error:", error);
+    logger.error("Start workout error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
