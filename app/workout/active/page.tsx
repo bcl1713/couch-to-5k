@@ -42,6 +42,9 @@ export default function WorkoutActivePage() {
   const [isPaused, setIsPaused] = useState(false);
   const [showQuitDialog, setShowQuitDialog] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const workoutStartedAtMsRef = useRef<number | null>(null);
+  const pauseStartedAtMsRef = useRef<number | null>(null);
+  const pausedDurationMsRef = useRef(0);
   const previousPhaseRef = useRef<Phase | null>(null);
   const previousIntervalIndexRef = useRef<number | null>(null);
 
@@ -78,6 +81,10 @@ export default function WorkoutActivePage() {
           return;
         }
         if (res.data) {
+          workoutStartedAtMsRef.current = Date.now();
+          pausedDurationMsRef.current = 0;
+          pauseStartedAtMsRef.current = null;
+          setElapsedSeconds(0);
           setSession(res.data);
         }
       } catch (error) {
@@ -201,25 +208,64 @@ export default function WorkoutActivePage() {
       phase === "interval" ? currentIntervalIndex : null;
   }, [phase, currentIntervalIndex, flatIntervals, playBeep, session]);
 
-  // Timer
+  const syncElapsedFromClock = useCallback(() => {
+    const workoutStartedAtMs = workoutStartedAtMsRef.current;
+    if (workoutStartedAtMs === null) {
+      return;
+    }
+
+    const activePauseMs = pauseStartedAtMsRef.current
+      ? Date.now() - pauseStartedAtMsRef.current
+      : 0;
+    const elapsedMs = Math.max(
+      Date.now() -
+        workoutStartedAtMs -
+        pausedDurationMsRef.current -
+        activePauseMs,
+      0
+    );
+
+    setElapsedSeconds(Math.floor(elapsedMs / 1000));
+  }, []);
+
+  // Timer: derive elapsed time from the clock so mobile PWA background
+  // throttling cannot make the workout fall behind real elapsed time.
   useEffect(() => {
     if (!session || isPaused || phase === "complete") {
       return;
     }
 
-    intervalRef.current = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
-    }, 1000);
+    syncElapsedFromClock();
+    intervalRef.current = setInterval(syncElapsedFromClock, 1000);
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [session, isPaused, phase]);
+  }, [session, isPaused, phase, syncElapsedFromClock]);
+
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && !isPaused) {
+        syncElapsedFromClock();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isPaused, session, syncElapsedFromClock]);
 
   const handlePause = async () => {
     if (!session) return;
+    pauseStartedAtMsRef.current = Date.now();
+    syncElapsedFromClock();
     setIsPaused(true);
     try {
       await apiPost(`/api/workouts/${session.sessionId}/pause`);
@@ -230,7 +276,12 @@ export default function WorkoutActivePage() {
 
   const handleResume = async () => {
     if (!session) return;
+    if (pauseStartedAtMsRef.current !== null) {
+      pausedDurationMsRef.current += Date.now() - pauseStartedAtMsRef.current;
+      pauseStartedAtMsRef.current = null;
+    }
     setIsPaused(false);
+    syncElapsedFromClock();
     try {
       await apiPost(`/api/workouts/${session.sessionId}/resume`);
     } catch (error) {

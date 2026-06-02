@@ -128,6 +128,15 @@ reconnect.
 - Some PWA features (like background sync) have limited support on iOS
 - App must be opened from Safari, not from another browser
 
+**Workout timer while the PWA is in the background:**
+
+- Mobile browsers may throttle or suspend PWA JavaScript and audio while the
+  app is backgrounded; they do not guarantee continuous background coaching
+  cues
+- Active workouts use wall-clock time, so the timer catches up when the app
+  returns to the foreground instead of falling behind delayed timer callbacks
+- Keep the app foregrounded for reliable transition beeps during the workout
+
 **App not updating to latest version:**
 
 - Uninstall and reinstall the app
