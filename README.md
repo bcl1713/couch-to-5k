@@ -232,6 +232,16 @@ The app initializes and seeds the database automatically on startup.
 - `NODE_ENV` - `development` for local, `production` in containers
 - `PORT` - Port for Next.js server (defaults to 3000)
 - `DATABASE_PATH` - Path to SQLite database file (defaults to `./data/app.db`)
+- `LOG_LEVEL` / `NEXT_PUBLIC_LOG_LEVEL` - Optional logger level: `debug`,
+  `info`, `warn`, `error`, or `silent`. Production defaults to `warn` so
+  warnings/errors remain visible while debug/info chatter is suppressed.
+
+## Logging
+
+Bundled app and API code should use `logger` from `@/lib/logger` rather than
+calling `console` directly. Pass normal arguments, including `Error` objects;
+the logger forwards them without stringifying away stack traces or metadata.
+Service worker logging is handled separately.
 
 ## Automated Releases
 
